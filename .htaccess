@@ -1,0 +1,4 @@
+Options -Indexes
+RewriteEngine On
+RewriteRule ^$ public/ [R=302,L]
+RewriteRule ^(?!public/). - [F,L]

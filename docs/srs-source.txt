@@ -1,0 +1,1032 @@
+
+
+SOFTWARE REQUIREMENTS 
+SPECIFICATION (SRS) 
+GST SALES BILLING SOFTWARE 
+Document Type: Software Requirements Specification 
+ Version: 1.1 
+ Theme: White / Light Theme 
+ Platform: Mobile-Friendly Web Application 
+ User Panels: Admin, Owner, Staff 
+ 
+1. Introduction 
+1.1 Purpose 
+This Software Requirements Specification (SRS) defines the functional and non-functional 
+requirements for a GST Sales Billing Software designed to create, save, manage, search, 
+print, and export sales invoices. 
+The system will provide a simple billing dashboard and an invoice creation workflow while 
+keeping the system lightweight by not maintaining a separate product master database. 
+Products/items will be entered directly while creating an invoice. Product information will be 
+stored as part of the relevant invoice for historical, reporting, and audit purposes only. 
+ 
+2. Project Objective 
+The primary objective of the system is to provide a simple, responsive, and mobile-friendly 
+billing solution that allows authorized users to: 
+1. Create GST sales invoices. 
+2. Enter customer information when required. 
+
+3. Add products/items directly into an invoice without maintaining a separate product 
+database. 
+4. Automatically calculate quantity, rate, discount, taxable value, GST, round-off, and grand 
+total. 
+5. Select applicable GST rates such as 0%, 5%, 12%, 18%, 28%, etc. 
+6. Allow a custom GST rate where required. 
+7. Validate business and customer GSTIN using basic GSTIN format validation. 
+8. Save invoices for future reference. 
+9. Search and manage previously created invoices. 
+10. Edit or cancel invoices according to user permissions. 
+11. Automatically reflect invoice edits in related sales and GST reports. 
+12. Maintain invoice edit activity in the audit/activity log. 
+13. Export complete invoices within a selected date range. 
+14. Export invoice audit reports within a selected date range. 
+15. Provide separate access panels for Admin, Owner, and Staff users. 
+ 
+3. Scope 
+3.1 In Scope 
+The system shall include: 
+● Dashboard 
+● User authentication 
+● Admin panel 
+● Owner panel 
+● Staff panel 
+● Invoice creation 
+● Customer information 
+● Manual invoice item entry 
+● GST calculation 
+● Standard GST rate selection 
+● Custom GST rate entry 
+● Basic GSTIN validation 
+● Discount calculation 
+● Round-off calculation 
+● Invoice saving 
+● Invoice history 
+● Invoice search 
+● Invoice editing 
+
+● Invoice cancellation 
+● Invoice duplication 
+● Invoice number generation 
+● Invoice PDF generation 
+● Invoice printing 
+● Invoice export by date range 
+● Invoice audit report by date range 
+● Sales reports 
+● GST reports 
+● User permissions 
+● Invoice activity/audit logging 
+● Business profile 
+● Payment details 
+● Mobile-responsive interface 
+● White/light UI theme 
+ 
+4. Product Database Restriction 
+The system shall not maintain a separate Product Master/Product Database. 
+Users shall not be required to: 
+● Create products in advance 
+● Save products for future selection 
+● Maintain inventory 
+● Maintain stock quantities 
+● Update stock 
+● Search products from a permanent product catalog 
+Products/items shall instead be entered directly during invoice creation. 
+Once an invoice is saved, its product information shall remain associated with that invoice for 
+historical records, reports, and audits. It shall not automatically become a reusable product 
+record. 
+ 
+5. User Roles 
+The system shall support three primary user panels: 
+
+1. Admin 
+2. Owner 
+3. Staff 
+ 
+6. Admin Panel 
+The Admin shall have the highest level of system access. 
+Admin capabilities 
+● Login 
+● Dashboard access 
+● Manage Owner accounts 
+● Manage Staff accounts 
+● Configure user permissions 
+● Manage business profile 
+● Manage GST/business information 
+● View invoices 
+● Search invoices 
+● Edit invoices 
+● Cancel invoices 
+● Duplicate invoices 
+● View reports 
+● Export invoices 
+● Export audit reports 
+● Configure invoice numbering 
+● View activity logs 
+● Manage system settings 
+ 
+7. Owner Panel 
+The Owner shall have access to business and billing operations. 
+Owner capabilities 
+● Login 
+● Dashboard 
+
+● Create invoice 
+● View invoice history 
+● Search invoices 
+● Edit invoices 
+● Cancel invoices 
+● Duplicate invoices 
+● View sales reports 
+● View GST reports 
+● Export invoices 
+● Export audit reports 
+● View invoice activity 
+● Manage business profile where permitted 
+● View staff activity where permitted 
+ 
+8. Staff Panel 
+Staff users shall have access to billing functions according to permissions assigned by the 
+Admin. 
+Staff capabilities 
+● Login 
+● Create invoice 
+● View invoices 
+● Search invoices 
+● Edit invoices if permitted 
+● Cancel invoices if permitted 
+● Duplicate invoices if permitted 
+● Print invoices 
+● Generate invoice PDFs 
+● Export invoices if permitted 
+● Generate audit reports if permitted 
+Staff users shall not automatically receive administrative or configuration privileges. 
+ 
+9. Business Profile 
+Authorized users shall be able to maintain business information required for invoicing. 
+
+Business Profile Fields 
+● Business Name 
+● Address 
+● GSTIN 
+● State 
+● Bank Name 
+● Account Number 
+● IFSC Code 
+● Branch 
+● Logo 
+ 
+10. Business GSTIN Validation 
+The system shall perform basic format validation for the Business GSTIN. 
+The validation shall verify that the entered GSTIN: 
+● Contains 15 characters. 
+● Follows the expected alphanumeric GSTIN structure. 
+● Does not contain invalid characters. 
+● Is not obviously malformed. 
+This shall be considered format validation only. 
+The system shall not treat successful format validation as proof that the GSTIN is officially active 
+or registered unless a separate government/API verification service is implemented. 
+ 
+11. Customer Details 
+Customer information shall be optional unless required by the user's billing process. 
+Customer Information 
+● Customer Name 
+● Mobile Number 
+● GSTIN 
+● Billing Address 
+
+● Shipping Address 
+● State 
+● Customer Type: 
+○ Registered 
+○ Unregistered 
+ 
+12. Customer GSTIN Validation 
+Where a customer GSTIN is entered, the system shall perform basic GSTIN format validation 
+similar to business GSTIN validation. 
+The system shall verify: 
+● 15-character length 
+● Valid expected alphanumeric structure 
+● No obviously invalid characters 
+This validation shall be format-level validation only and shall not constitute official GST 
+registration verification without external GST integration. 
+ 
+13. Invoice Creation 
+13.1 Main Workflow 
+The primary billing workflow shall be: 
+Create Bill → Enter Customer Details (Optional) → Add Products/Items → Enter Item 
+Details → Automatic Calculation → Save Invoice → Export/Print/Share 
+ 
+14. Invoice Number 
+The system shall generate invoice numbers using a configurable invoice number series. 
+Requirements 
+
+● Automatic invoice numbering 
+● Sequential numbering 
+● Configurable starting number 
+● Invoice date association 
+● Unique invoice identification 
+ 
+15. Invoice Fields 
+Each invoice shall contain, where applicable: 
+● Business Logo 
+● Business Name 
+● Business Address 
+● Business GSTIN 
+● State 
+● Invoice Number 
+● Invoice Date 
+● Customer Details 
+● Product/Item Details 
+● Quantity 
+● Rate 
+● Discount 
+● Taxable Value 
+● GST Rate 
+● CGST 
+● SGST 
+● IGST 
+● Round Off 
+● Total Invoice Amount 
+● Payment Details 
+● Bank Details 
+ 
+16. Product/Item Entry 
+Products/items shall be entered manually during invoice creation. 
+Product/Item Fields 
+
+● Product Name 
+● HSN/SAC Code 
+● GST Rate 
+● Selling Price / Rate 
+● Unit 
+● Product Description 
+● Quantity 
+● Discount 
+These item details shall be stored as part of the invoice only. 
+ 
+17. GST Rate Management 
+The invoice item GST field shall provide commonly applicable GST rate options. 
+Standard GST Rate Options 
+The system shall provide selectable GST rates such as: 
+● 0% 
+● 5% 
+● 12% 
+● 18% 
+● 28% 
+● Other applicable standard rates, where required 
+The available standard GST rates should be configurable so that the software can 
+accommodate applicable rate changes in the future. 
+ 
+18. Custom GST Rate 
+In addition to predefined GST rates, the system shall provide a Custom GST Rate option. 
+When Custom GST is selected, the authorized user may manually enter the required GST 
+percentage. 
+Example 
+
+GST Rate → Custom → 3% 
+The system shall then use the entered custom percentage for the corresponding item's GST 
+calculation. 
+The system should validate that the entered custom GST rate is a valid non-negative 
+percentage within the application's configured limits. 
+ 
+19. GST Calculation 
+The system shall automatically calculate applicable GST values. 
+Required Components 
+● Taxable Amount 
+● CGST 
+● SGST 
+● IGST 
+● Total Tax 
+● Grand Total 
+Intra-State Transaction 
+For applicable intra-state transactions: 
+GST = CGST + SGST 
+The GST amount shall be appropriately divided between CGST and SGST. 
+Inter-State Transaction 
+For applicable inter-state transactions: 
+GST = IGST 
+The system shall automatically calculate the relevant tax based on the selected GST rate. 
+ 
+20. Automatic Calculation 
+
+The system shall automatically calculate: 
+Quantity × Rate → Gross Amount 
+Gross Amount − Discount → Taxable Value 
+Taxable Value × Applicable GST Rate → GST Amount 
+The system shall then calculate: 
+Taxable Value + GST + Round-Off = Grand Total 
+The exact calculation sequence shall be consistently applied across invoice creation, editing, 
+reporting, and exports. 
+ 
+21. Discount Calculation 
+The system shall support discount entry at the invoice-item level. 
+The system shall calculate: 
+Gross Amount → Discount → Taxable Value → GST → Final Amount 
+ 
+22. Round-Off 
+The system shall automatically calculate round-off where applicable. 
+The invoice shall display: 
+● Subtotal 
+● Discount 
+● Taxable Amount 
+● Tax 
+● Round-Off 
+● Grand Total 
+ 
+
+23. Payment Details 
+The system shall support: 
+● Cash 
+● UPI 
+● Card 
+● Bank Transfer 
+● Credit 
+Where applicable: 
+● Payment Reference Number 
+ 
+24. Invoice Management 
+The system shall provide: 
+● Create Invoice 
+● Edit Invoice 
+● Cancel Invoice 
+● Duplicate Invoice 
+● Search Invoice 
+● View Invoice 
+● Invoice History 
+● Invoice Number Series 
+ 
+25. Invoice Search 
+Users with appropriate permissions shall be able to search invoices using: 
+● Invoice Number 
+● Invoice Date 
+● Customer Name 
+● Customer Mobile Number 
+● GSTIN 
+● Payment Method 
+
+● Invoice Status 
+● Date Range 
+ 
+26. Invoice History 
+The invoice history shall display, where applicable: 
+● Invoice Number 
+● Date 
+● Customer 
+● Total Amount 
+● Payment Method 
+● Status 
+● Created By 
+● Last Updated By 
+● Last Updated Date/Time 
+ 
+27. Invoice Editing 
+Authorized users shall be able to edit saved invoices according to their permissions. 
+When an invoice is edited: 
+1. The invoice data shall be updated. 
+2. GST and financial calculations shall be recalculated. 
+3. Related sales reports shall reflect the updated invoice. 
+4. Related GST reports shall reflect the updated GST values. 
+5. Dashboard figures based on the invoice shall be updated accordingly. 
+6. The invoice edit shall be recorded in the activity/audit log. 
+The reports must always reflect the latest valid state of the invoice. 
+ 
+28. Invoice Edit Audit Log 
+Every invoice edit shall maintain an activity log entry. 
+
+The activity log should contain, where applicable: 
+● Invoice Number 
+● User Name/User ID 
+● Action: Invoice Edited 
+● Date 
+● Time 
+● Previous values or changed fields 
+● Updated values, where technically supported 
+● Final invoice amount 
+● Final GST amount 
+This shall provide traceability for invoice modifications. 
+ 
+29. Report Synchronization After Editing 
+Whenever an invoice is edited, the system shall automatically update all relevant reports 
+derived from that invoice. 
+This includes: 
+● Daily Sales Report 
+● Monthly Sales Report 
+● Date-wise Sales Report 
+● Customer-wise Sales Report 
+● GST Summary 
+● CGST Summary 
+● SGST Summary 
+● IGST Summary 
+● HSN-wise Sales Report 
+● Dashboard sales figures 
+● Dashboard GST figures 
+The system shall not retain outdated report totals for an edited invoice. 
+ 
+30. Invoice Cancellation 
+Authorized users shall be able to cancel an invoice according to permissions. 
+
+Cancelled invoices shall remain identifiable in invoice history and shall be appropriately 
+reflected in reports. 
+The cancellation action shall also be recorded in the activity/audit log. 
+ 
+31. Duplicate Invoice 
+Authorized users may duplicate an existing invoice to reduce repetitive data entry. 
+Duplicating an invoice shall create a new invoice record with a new invoice number and 
+appropriate invoice date. 
+ 
+32. Invoice Export 
+The system shall provide two mandatory date-range-based export functions. 
+ 
+32.1 Complete Invoice Export 
+The user shall select: 
+From Date → To Date → Export Invoices 
+The system shall generate one PDF file containing all invoices within the selected date range. 
+Requirements 
+● Every matching invoice shall be included. 
+● Each invoice shall appear on a separate page. 
+● Multiple invoices shall be contained within the same PDF. 
+● Invoice formatting shall be print-ready. 
+● Each invoice shall retain its complete invoice information. 
+Example 
+If 25 invoices were created during the selected period: 
+
+1 PDF = 25 invoice pages 
+ 
+33. Invoice Audit Report 
+The user shall select: 
+From Date → To Date → Export Invoice Audit 
+The system shall generate one PDF in tabular format. 
+Minimum Columns 
+Column Description 
+Sl. No. Sequential number 
+Date Invoice date 
+Invoice No. Invoice number 
+Customer Name Customer name 
+Customer Number Customer mobile number 
+GSTIN Customer GSTIN, if available 
+Products Product/item information 
+Total Cost Final invoice amount 
+Additional columns may include: 
+● Taxable Amount 
+● CGST 
+● SGST 
+● IGST 
+● Total GST 
+● Payment Method 
+● Invoice Status 
+● Created By 
+● Last Updated By 
+ 
+
+34. Invoice Output 
+The system shall support: 
+● A4 Invoice 
+● Thermal Printer Invoice 
+● PDF Invoice 
+● Print Invoice 
+Where technically supported: 
+● WhatsApp Share 
+● Email Invoice 
+ 
+35. Reports 
+35.1 Sales Reports 
+● Daily Sales Report 
+● Monthly Sales Report 
+● Date-wise Sales Report 
+● Customer-wise Sales Report 
+35.2 GST Reports 
+● GST Summary 
+● CGST Summary 
+● SGST Summary 
+● IGST Summary 
+● HSN-wise Sales Report 
+35.3 Other Reports 
+● Credit Note Report 
+● Invoice Audit Report 
+All reports based on invoice data shall reflect the latest saved state of the invoices, including 
+approved edits. 
+
+ 
+36. Dashboard 
+The dashboard shall provide business summaries such as: 
+● Total Sales 
+● Total GST Collected 
+● Number of Invoices 
+● Cancelled Invoices 
+● Credit Sales 
+● Today's Sales 
+Dashboard values shall be recalculated/updated when relevant invoice records are created, 
+edited, or cancelled. 
+ 
+37. Credit Note and Sales Return 
+The requested system shall support: 
+● Credit Note Creation 
+● Sales Return Entry 
+● GST Adjustment 
+● Refund/Adjustment Details 
+A credit note/sales return should reference the relevant original invoice where applicable. 
+ 
+38. E-Invoice and E-Way Bill 
+The requested advanced GST features include: 
+● E-Invoice Integration 
+● IRN Generation 
+● QR Code 
+● E-Way Bill Generation 
+● Transporter Details 
+● Vehicle Number 
+
+These features shall be treated as integration-dependent modules because implementation 
+may require external services, credentials, government/API access, and applicable GST 
+compliance requirements. 
+ 
+39. User Management 
+The system shall provide: 
+● Admin Login 
+● Owner Login 
+● Staff Login 
+● User Permissions 
+Permissions may include: 
+● Create Invoice 
+● View Invoice 
+● Edit Invoice 
+● Cancel Invoice 
+● Duplicate Invoice 
+● Export Invoice 
+● Export Audit Report 
+● View Reports 
+● Manage Users 
+● Manage Business Profile 
+ 
+40. Data Security 
+The system shall provide: 
+● Secure login 
+● Role-based access 
+● Password/PIN protection 
+● Permission-based actions 
+● Invoice activity logging 
+● Protection against unauthorized modifications 
+ 
+
+41. Invoice Activity Log 
+The activity log shall track important invoice actions, including: 
+● Invoice Created 
+● Invoice Edited 
+● Invoice Cancelled 
+● Invoice Duplicated 
+● Invoice Exported 
+● Invoice Printed 
+For edits, the log shall contain relevant information about what was changed whenever 
+technically supported. 
+ 
+42. Backup and Restore 
+The requested feature set includes: 
+● Automatic Backup 
+● Cloud Backup 
+● Restore Data 
+These features shall be implemented according to the final system architecture and selected 
+storage infrastructure. 
+ 
+43. Export Formats 
+Where applicable, the system shall support: 
+● PDF 
+● Excel 
+● CSV 
+● Print 
+● WhatsApp 
+● Email 
+The two mandatory export functions remain: 
+
+1. Complete Invoice PDF Export 
+2. Invoice Audit PDF Export 
+Both shall support date-range selection. 
+ 
+44. Invoice PDF Structure 
+Header 
+● Logo 
+● Business Name 
+● Address 
+● GSTIN 
+● State 
+Invoice Information 
+● Invoice Number 
+● Invoice Date 
+Customer Section 
+● Customer Name 
+● Mobile Number 
+● GSTIN 
+● Billing Address 
+● Shipping Address 
+● State 
+● Registered/Unregistered 
+Item Table 
+● Sl. No. 
+● Product Name 
+● HSN/SAC 
+● Description 
+● Quantity 
+● Unit 
+
+● Rate 
+● Discount 
+● Taxable Value 
+● GST Rate 
+● CGST 
+● SGST 
+● IGST 
+● Total 
+Summary 
+● Subtotal 
+● Discount 
+● Taxable Amount 
+● CGST 
+● SGST 
+● IGST 
+● Total GST 
+● Round-Off 
+● Grand Total 
+Payment Section 
+● Payment Method 
+● Payment Reference Number 
+Footer 
+● Bank Details 
+● Terms/Notes 
+● Authorized Signature Area 
+ 
+45. Audit Report Structure 
+The invoice audit PDF shall present invoice records in a clear tabular format. 
+Minimum Structure 
+
+Sl. No. Date Invoice No. Customer 
+Info 
+Products Total Cost 
+Customer information may include: 
+● Customer Name 
+● Mobile Number 
+● GSTIN, if available 
+ 
+46. Core Billing Workflow 
+Login 
+↓ 
+Dashboard 
+↓ 
+Create Invoice 
+↓ 
+Enter Invoice Date / Invoice Number 
+↓ 
+Enter Customer Details (Optional) 
+↓ 
+Add Product/Item 
+↓ 
+Enter Product Name, HSN/SAC, Unit, Rate, Quantity 
+↓ 
+Select GST Rate 
+0% / 5% / 12% / 18% / 28% / Other Applicable Rate / Custom 
+
+↓ 
+Enter Discount 
+↓ 
+Automatic Taxable Value + GST + Round-Off Calculation 
+↓ 
+Review Invoice 
+↓ 
+Select Payment Method 
+↓ 
+Save Invoice 
+↓ 
+Invoice Generated 
+↓ 
+Print / PDF / Export / Share 
+ 
+47. Invoice Edit Workflow 
+Invoice History 
+↓ 
+Open Invoice 
+↓ 
+Edit Invoice 
+↓ 
+Modify Required Fields 
+
+↓ 
+Automatic Recalculation 
+↓ 
+Save Changes 
+↓ 
+Invoice Updated 
+↓ 
+Sales/GST Reports Updated 
+↓ 
+Dashboard Updated 
+↓ 
+Edit Activity Added to Audit Log 
+ 
+48. Complete Invoice Export Workflow 
+Dashboard → Export → Invoice Export 
+↓ 
+Select From Date 
+↓ 
+Select To Date 
+↓ 
+Generate 
+↓ 
+System retrieves matching invoices 
+
+↓ 
+Creates one PDF 
+↓ 
+Each invoice appears on a separate page 
+↓ 
+PDF Export Completed 
+ 
+49. Invoice Audit Export Workflow 
+Dashboard → Export → Invoice Audit 
+↓ 
+Select From Date 
+↓ 
+Select To Date 
+↓ 
+Generate 
+↓ 
+System retrieves matching invoice data 
+↓ 
+Creates tabular report 
+↓ 
+Generates one PDF 
+↓ 
+PDF Export Completed 
+
+ 
+50. Functional Requirements Summary 
+ID Requirement 
+FR-01 System shall provide Admin, Owner, and Staff 
+login 
+FR-02 System shall provide role-based access 
+FR-03 Authorized users shall be able to create 
+invoices 
+FR-04 Customer details shall be optional 
+FR-05 Products/items shall be entered directly into 
+invoices 
+FR-06 System shall not maintain a separate product 
+database 
+FR-07 System shall calculate item totals 
+automatically 
+FR-08 System shall calculate discounts 
+automatically 
+FR-09 System shall provide standard GST rate 
+options 
+FR-10 System shall support custom GST rates 
+FR-11 System shall automatically calculate 
+CGST/SGST/IGST 
+FR-12 System shall calculate taxable amount and 
+total GST 
+FR-13 System shall calculate round-off automatically 
+FR-14 System shall perform basic business GSTIN 
+format validation 
+FR-15 System shall perform basic customer GSTIN 
+format validation 
+
+FR-16 Users shall be able to save invoices 
+FR-17 Users shall be able to search invoice history 
+FR-18 Authorized users shall be able to edit invoices 
+FR-19 Invoice edits shall update related sales 
+reports 
+FR-20 Invoice edits shall update related GST reports 
+FR-21 Invoice edits shall update relevant dashboard 
+figures 
+FR-22 Invoice edits shall be recorded in the audit log 
+FR-23 Users shall be able to cancel invoices 
+according to permission 
+FR-24 Users shall be able to duplicate invoices 
+according to permission 
+FR-25 System shall generate invoice numbers 
+FR-26 System shall generate printable PDF invoices 
+FR-27 System shall export invoices by date range 
+FR-28 Each exported invoice shall occupy a 
+separate PDF page 
+FR-29 System shall export invoice audit reports by 
+date range 
+FR-30 Audit export shall use a tabular format 
+FR-31 System shall provide sales reports 
+FR-32 System shall provide GST reports 
+FR-33 System shall provide dashboard summaries 
+FR-34 System shall maintain invoice activity logs 
+FR-35 System shall support business profile 
+information 
+FR-36 System shall support payment details 
+
+FR-37 System shall support requested credit 
+note/sales return features 
+FR-38 System shall support integration-dependent 
+GST modules where implemented 
+FR-39 System shall support PDF/Excel/CSV/Print 
+exports where applicable 
+FR-40 System shall be mobile responsive 
+FR-41 System shall use a white/light theme 
+ 
+51. Non-Functional Requirements 
+51.1 Responsive Design 
+The application shall be optimized for: 
+● Mobile phones 
+● Tablets 
+● Laptops 
+● Desktop computers 
+The invoice creation workflow shall remain fully usable on small screens. 
+ 
+51.2 User Interface 
+The application shall use: 
+● White/light theme 
+● Clean interface 
+● Simple navigation 
+● Readable typography 
+● Clear action buttons 
+● Responsive tables 
+● Mobile-friendly invoice forms 
+● Minimal visual clutter 
+
+ 
+51.3 Performance 
+The system should: 
+● Load dashboards quickly 
+● Perform calculations without noticeable delay 
+● Generate PDFs efficiently 
+● Support normal business billing volumes 
+ 
+51.4 Reliability 
+Saved invoice records should remain available after normal page refreshes, navigation, and 
+user sessions according to the final storage architecture. 
+ 
+52. Business Rules 
+1. Customer information shall be optional. 
+2. Products shall be entered manually during invoice creation. 
+3. Products shall not be stored in a separate reusable product database. 
+4. Product details shall remain associated with their respective invoices. 
+5. Standard GST rates such as 0%, 5%, 12%, 18%, and 28% shall be available. 
+6. The system shall support custom GST rates. 
+7. GST shall be automatically calculated according to the selected rate. 
+8. Business GSTIN shall undergo basic format validation. 
+9. Customer GSTIN shall undergo basic format validation where entered. 
+10. GSTIN format validation shall not imply government registration verification. 
+11. Invoice numbers shall follow the configured number series. 
+12. Invoice edits shall recalculate relevant financial and GST values. 
+13. Invoice edits shall automatically update related sales and GST reports. 
+14. Invoice edits shall be recorded in the audit/activity log. 
+15. Cancelled invoices shall remain identifiable in invoice history. 
+16. Invoice exports shall be based on selected date ranges. 
+17. Complete invoice export shall contain all selected invoices in one PDF. 
+18. Every invoice in the complete invoice export shall occupy a separate page. 
+19. Invoice audit export shall be a tabular PDF. 
+20. Role permissions shall control sensitive invoice and system operations. 
+
+21. The system shall not include inventory/stock management unless separately specified. 
+ 
+53. Acceptance Criteria 
+The system shall be considered functionally complete when the following scenario works 
+successfully: 
+A Staff or Owner user logs in → opens Create Invoice → optionally enters customer details → 
+manually adds one or more products/items → enters quantity, rate, discount, HSN/SAC, and 
+GST rate → selects a standard GST rate or enters a custom GST rate → system automatically 
+calculates taxable amount, CGST/SGST/IGST, total GST, round-off, and grand total → user 
+saves the invoice → invoice appears in history → user can open, print, or download the invoice. 
+The system shall also validate the format of any entered business or customer GSTIN. 
+When the invoice is subsequently edited, the system shall recalculate the invoice, update the 
+relevant sales/GST reports and dashboard values, and create an invoice-edit entry in the 
+activity/audit log. 
+The user shall then be able to select a date range and export all matching invoices into one 
+PDF with each invoice on a separate page. The same date range shall also be exportable as an 
+invoice audit PDF containing the required tabular information. 
+No product shall be created as a permanent reusable product-master record. 
+ 
+54. Recommended Module Structure 
+Module 01 — Authentication 
+● Login 
+● Role Management 
+● Permissions 
+Module 02 — Dashboard 
+● Total Sales 
+● GST Collected 
+
+● Invoice Count 
+● Today's Sales 
+● Cancelled Invoices 
+● Credit Sales 
+● Recent Invoices 
+Module 03 — Business Profile 
+● Business Information 
+● GSTIN 
+● GSTIN Format Validation 
+● Address 
+● Logo 
+● Bank Details 
+Module 04 — Invoice Creation 
+● Customer Details 
+● Customer GSTIN Validation 
+● Manual Item Entry 
+● GST Rate Selection 
+● Custom GST 
+● Discount 
+● GST Calculation 
+● Round-Off 
+● Payment Details 
+Module 05 — Invoice Management 
+● Invoice History 
+● Search 
+● View 
+● Edit 
+● Cancel 
+● Duplicate 
+Module 06 — Reports 
+● Sales Reports 
+● GST Reports 
+● Customer Reports 
+● HSN Reports 
+
+● Credit Note Reports 
+● Audit Reports 
+Module 07 — Export 
+● Complete Invoice PDF 
+● Invoice Audit PDF 
+● Excel 
+● CSV 
+● Print 
+● WhatsApp 
+● Email 
+Module 08 — User Management 
+● Admin 
+● Owner 
+● Staff 
+● Permissions 
+Module 09 — Activity & Security 
+● Activity Log 
+● Invoice Edit History 
+● Backup 
+● Restore 
+● Password/PIN 
+Module 10 — GST Integrations 
+● E-Invoice 
+● IRN 
+● QR Code 
+● E-Way Bill 
+ 
+55. Priority Classification 
+
+Priority 1 — Mandatory Core 
+● Authentication 
+● Admin/Owner/Staff panels 
+● Dashboard 
+● Business profile 
+● Create invoice 
+● Optional customer details 
+● Manual product/item entry 
+● Standard GST rates 
+● Custom GST 
+● GSTIN format validation 
+● Automatic GST calculation 
+● Discount calculation 
+● Round-off 
+● Save invoice 
+● Invoice history 
+● Search 
+● Edit invoice 
+● Sales/GST report synchronization after editing 
+● Edit activity logging 
+● Invoice PDF 
+● Print 
+● Complete invoice export by date range 
+● Invoice audit export by date range 
+● Mobile responsiveness 
+● White/light theme 
+Priority 2 — Management Features 
+● Invoice cancellation 
+● Duplicate invoice 
+● Payment details 
+● Sales reports 
+● GST reports 
+● Customer-wise reports 
+● HSN-wise reports 
+● Credit note 
+● Sales return 
+● Activity log 
+● Backup/restore 
+
+Priority 3 — Advanced/Integration Features 
+● E-Invoice Integration 
+● IRN Generation 
+● QR Code 
+● E-Way Bill 
+● WhatsApp integration 
+● Email integration 
+● Advanced export formats 
+● Thermal printer optimization 
+ 
+56. Final Product Definition 
+The final product shall be a: 
+Mobile-friendly GST Billing and Invoice Management Web Application with Admin, 
+Owner, and Staff panels, focused on invoice creation, invoice storage, GST calculation, 
+invoice management, reporting, auditing, and date-range-based exports without 
+maintaining a separate product database. 
+The core system philosophy shall be: 
+Create Bills → Save Bills → Manage Bills → Update Bills → Update Reports → Audit 
+Changes → Export Bills & Audit Reports 
+rather than: 
+Create Products → Maintain Inventory → Sell Products 
+This distinction is a core requirement of the project. 
+ 
+END OF SRS 
+ 

@@ -1,0 +1,218 @@
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+* {
+  box-sizing: border-box;
+}
+.invoice-document {
+  font-family: "DejaVu Sans", Arial, sans-serif;
+  font-size: 10px;
+  color: #172b3a;
+  background: white;
+  line-height: 1.45;
+}
+.invoice-header {
+  border-bottom: 3px solid #167466;
+  padding-bottom: 16px;
+  min-height: 110px;
+}
+.invoice-header h1 {
+  font-size: 22px;
+  margin: 0 0 7px;
+}
+.invoice-header h2 {
+  font-size: 17px;
+  color: #167466;
+  margin: 0 0 8px;
+}
+.invoice-number {
+  text-align: right;
+}
+.business-logo {
+  max-height: 55px;
+  max-width: 110px;
+  float: left;
+  margin-right: 15px;
+}
+.parties {
+  width: 100%;
+  margin: 18px 0;
+  border-collapse: collapse;
+}
+.parties td {
+  width: 50%;
+  vertical-align: top;
+  padding: 8px;
+  background: #f4f7f8;
+}
+.eyebrow {
+  font-size: 9px;
+  color: #657580;
+  letter-spacing: 1px;
+}
+h3 {
+  font-size: 11px;
+  margin: 8px 0;
+}
+p {
+  margin: 6px 0;
+}
+.invoice-items {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 8px;
+}
+.invoice-items th {
+  background: #edf5f2;
+  text-align: left;
+  padding: 7px 3px;
+  border-bottom: 1px solid #a6c7bc;
+}
+.invoice-items td {
+  padding: 8px 3px;
+  border-bottom: 1px solid #e0e7eb;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+}
+.invoice-items th:first-child {
+  width: 3%;
+}
+.invoice-items th:nth-child(2) {
+  width: 24%;
+}
+.invoice-items th:nth-child(3) {
+  width: 8%;
+}
+.invoice-items th:nth-child(7) {
+  width: 6%;
+}
+.num {
+  text-align: right;
+  white-space: normal;
+}
+.invoice-bottom {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+}
+.invoice-bottom > tbody > tr > td {
+  vertical-align: top;
+  width: 40%;
+}
+.invoice-bottom > tbody > tr > td.bank {
+  width: 60%;
+  padding-right: 25px;
+}
+.totals-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.totals-table td {
+  padding: 3px;
+}
+.grand {
+  background: #edf5f2;
+  font-weight: bold;
+  font-size: 12px;
+}
+.invoice-footer {
+  margin-top: 25px;
+  padding-top: 12px;
+  border-top: 1px solid #d8e0e4;
+  font-size: 8px;
+  color: #657580;
+}
+.signature {
+  text-align: right;
+  color: #172b3a;
+}
+.invoice-items tr {
+  page-break-inside: avoid;
+}
+thead {
+  display: table-header-group;
+}
+.invoice-document + .invoice-document {
+  page-break-before: always;
+}
+.audit-table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  font-size: 8px;
+  font-family: "DejaVu Sans", sans-serif;
+}
+.audit-table td,
+.audit-table th {
+  padding: 6px;
+  border: 1px solid #d8e0e4;
+  word-wrap: break-word;
+}
+.audit-table th {
+  background: #edf5f2;
+}
+.audit-table tr {
+  page-break-inside: avoid;
+}
+@media screen {
+  .invoice-document {
+    max-width: 980px;
+    margin: auto;
+    padding: 30px;
+    border: 1px solid #dde5e9;
+  }
+  .invoice-header {
+    display: flex;
+    justify-content: space-between;
+  }
+}
+@media print {
+  body {
+    margin: 0;
+  }
+  .no-print,
+  nav,
+  aside,
+  button {
+    display: none !important;
+  }
+  .invoice-document {
+    width: 100%;
+  }
+  body.thermal .invoice-document {
+    font-size: 9px;
+    width: 72mm;
+  }
+  body.thermal .invoice-items {
+    font-size: 7px;
+    table-layout: auto;
+  }
+  body.thermal .invoice-items th:nth-child(n + 4):not(:last-child),
+  body.thermal .invoice-items td:nth-child(n + 4):not(:last-child) {
+    display: none;
+  }
+  body.thermal .invoice-bottom > tbody > tr > td {
+    display: block;
+    width: 100% !important;
+  }
+  body.thermal .parties td {
+    display: block;
+    width: 100%;
+  }
+}
+/* Dompdf and browser print share this positioning without relying on flex layout. */
+.invoice-header {
+  position: relative;
+}
+.invoice-header > div:first-child {
+  width: 62%;
+}
+.invoice-header .invoice-number {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 35%;
+}

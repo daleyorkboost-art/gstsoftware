@@ -1,0 +1,11 @@
+.env
+/tmp/
+/hostinger-upload/
+/public_html/
+/output/
+/vendor/
+/storage/*
+!/storage/.htaccess
+!/storage/.gitkeep
+/tests/.env
+*.log
