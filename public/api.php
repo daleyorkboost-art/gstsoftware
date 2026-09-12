@@ -17,7 +17,8 @@ use App\{
     PDFService,
     BackupService,
     MailService,
-    GSTIntegrationService,
+    CreditLedgerService,
+    AdminService,
 };
 header("Content-Type: application/json; charset=utf-8");
 header("Cache-Control: no-store");
@@ -52,6 +53,7 @@ try {
     $write = [
         "login",
         "logout",
+        "password_reset",
         "calculate",
         "save_invoice",
         "cancel_invoice",
@@ -59,17 +61,22 @@ try {
         "printed",
         "save_business",
         "logo_upload",
+        "signature_upload",
+        "business_asset_delete",
         "save_settings",
         "save_numbering",
         "save_user",
         "provision_user",
+        "reset_user_password",
+        "delete_user",
+        "delete_transactions",
+        "clear_credit",
         "create_credit",
         "export_start",
         "export_step",
         "backup",
         "restore",
         "email",
-        "gst_submit",
     ];
     if (in_array($action, $write, true) && $method !== "POST") {
         throw new HttpError(405, "This action requires POST.");
@@ -79,6 +86,7 @@ try {
             "firebase" => [],
             "csrf" => $_SESSION["csrf"],
             "timezone" => Config::get("APP_TIMEZONE", "Asia/Kolkata"),
+            "release" => "2.1.2",
         ];
         foreach (
             [
@@ -93,6 +101,14 @@ try {
         ) {
             $result["firebase"][$k] = Config::get("FIREBASE_" . $v);
         }
+    } elseif ($action === "password_reset") {
+        Auth::limit("password-reset", 5);
+        $email = strtolower(Validation::text($body["email"] ?? "", "email", 190, true));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new HttpError(422, "Enter a valid email address.");
+        }
+        (new App\FirebaseService())->sendPasswordReset($email);
+        $result = ["message" => "If the account exists, a password reset email has been sent."];
     } elseif ($action === "login") {
         $result = [
             "user" => Auth::login(
@@ -111,11 +127,14 @@ try {
             "save_invoice" => $id ? "edit_invoice" : "create_invoice",
             "cancel_invoice" => "cancel_invoice",
             "duplicate_invoice" => "duplicate_invoice",
-            "printed" => "view_invoice",
-            "pdf" => "view_invoice",
+            "printed" => "print_invoice",
+            "pdf" => "print_invoice",
             "business" => "view_invoice",
+            "business_asset" => "view_invoice",
             "save_business" => "manage_business_profile",
             "logo_upload" => "manage_business_profile",
+            "signature_upload" => "manage_business_profile",
+            "business_asset_delete" => "manage_business_profile",
             "settings" => "view_invoice",
             "save_settings" => "manage_settings",
             "numbering" => "configure_invoice_numbering",
@@ -123,15 +142,23 @@ try {
             "users" => "manage_users",
             "save_user" => "manage_users",
             "provision_user" => "manage_users",
+            "reset_user_password" => "reset_user_password",
+            "delete_user" => "delete_users",
+            "delete_transactions" => "delete_transaction_data",
+            "credit_accounts" => "manage_credit_invoices",
+            "credit_account" => "manage_credit_invoices",
+            "clear_credit" => "clear_credit",
+            "credit_receipt" => "manage_credit_invoices",
+            "credit_history" => "manage_credit_invoices",
+            "credit_history_all" => "manage_credit_invoices",
             "reports" => "view_reports",
             "create_credit" => "manage_credit_notes",
+            "credit_note_pdf" => "manage_credit_notes",
             "activity" => "view_activity_logs",
             "history" => "view_invoice",
             "backup" => "manage_backups",
             "restore" => "manage_backups",
             "email" => "export_invoice",
-            "gst_submit" => "manage_settings",
-            "integrations" => "manage_settings",
         ];
         if ($action === "calculate") {
             $permissions[$action] = empty($body["id"])
@@ -182,8 +209,20 @@ try {
                 exit();
             })(),
             "business" => SettingsService::business(),
+            "business_asset" => (function () {
+                $type = Validation::choice($_GET["type"] ?? "logo", ["logo", "signature"], "asset type");
+                $business = SettingsService::business();
+                $name = $business[$type] ?? "";
+                if (!preg_match('/^[a-f0-9]{40}\.png$/D', $name) || !is_file(ROOT . "/storage/uploads/" . $name)) throw new HttpError(404, "Business asset not configured.");
+                header("Content-Type: image/png");
+                header("Content-Length: " . filesize(ROOT . "/storage/uploads/" . $name));
+                readfile(ROOT . "/storage/uploads/" . $name);
+                exit();
+            })(),
             "save_business" => SettingsService::saveBusiness($body, $u),
             "logo_upload" => SettingsService::upload($_FILES["logo"] ?? [], $u),
+            "signature_upload" => SettingsService::uploadSignature($_FILES["signature"] ?? [], $u),
+            "business_asset_delete" => SettingsService::deleteAsset($body["type"] ?? "", $u),
             "settings" => SettingsService::settings(),
             "save_settings" => SettingsService::save($body, $u),
             "numbering" => DB::one(
@@ -193,8 +232,59 @@ try {
             "users" => (new UserService())->list(),
             "save_user" => (new UserService())->save($body, $u),
             "provision_user" => (new UserService())->provision($body, $u),
+            "reset_user_password" => (new UserService())->resetPassword($body, $u),
+            "delete_user" => (new UserService())->delete($body, $u),
+            "delete_transactions" => (new AdminService())->deleteTransactions($body, $u),
+            "credit_accounts" => (new CreditLedgerService())->list($_GET),
+            "credit_account" => (new CreditLedgerService())->get($id),
+            "clear_credit" => (new CreditLedgerService())->clear($body, $u),
+            "credit_receipt" => (function () use ($id, $u) {
+                $ledger = new CreditLedgerService();
+                $receipt = $ledger->receipt($id);
+                $pdf = new PDFService();
+                AuditLogService::record($u, "Credit Receipt Exported", null, ["receipt" => $receipt["receipt_number"]]);
+                header("Content-Type: application/pdf");
+                header('Content-Disposition: attachment; filename="' . $receipt["receipt_number"] . '.pdf"');
+                echo $pdf->render($pdf->receiptHtml($receipt));
+                exit();
+            })(),
+            "credit_history" => (function () use ($id, $u) {
+                $account = (new CreditLedgerService())->get($id);
+                AuditLogService::record($u, "Credit History Exported", null, ["credit_account_id" => $id]);
+                header("Content-Type: text/csv; charset=utf-8");
+                header('Content-Disposition: attachment; filename="credit-history-' . $id . '.csv"');
+                $out = fopen("php://output", "wb");
+                fwrite($out, "\xEF\xBB\xBF");
+                fputcsv($out, ["Date", "Type", "Invoice", "Receipt", "Amount", "Payment modes", "Balance"]);
+                foreach ($account["transactions"] as $row) fputcsv($out, array_map([ExportService::class, "csvSafe"], [$row["transaction_date"], $row["kind"], $row["invoice_number"] ?? "", $row["receipt_number"] ?? "", $row["amount"], implode(" + ", array_column($row["allocations"], "method")), $row["balance_after"]]));
+                fclose($out);
+                exit();
+            })(),
+            "credit_history_all" => (function () use ($u) {
+                $rows = (new CreditLedgerService())->historyRows();
+                AuditLogService::record($u, "All Credit History Exported", null, ["rows" => count($rows)]);
+                header("Content-Type: text/csv; charset=utf-8");
+                header('Content-Disposition: attachment; filename="all-credit-invoice-history-' . date("Y-m-d") . '.csv"');
+                $out = fopen("php://output", "wb");
+                fwrite($out, "\xEF\xBB\xBF");
+                fputcsv($out, ["Date", "Customer", "Mobile", "Address", "Type", "Invoice", "Receipt", "Amount", "Payment modes", "Balance", "Recorded by"]);
+                foreach ($rows as $row) {
+                    fputcsv($out, array_map([ExportService::class, "csvSafe"], [$row["transaction_date"], $row["customer_name"], $row["customer_mobile"], $row["customer_address"], $row["kind"], $row["invoice_number"] ?? "", $row["receipt_number"] ?? "", $row["amount"], $row["payment_modes"], $row["balance_after"], $row["created_by_name"]]));
+                }
+                fclose($out);
+                exit();
+            })(),
             "reports" => (new ReportService())->report($_GET),
             "create_credit" => (new CreditNoteService())->create($body, $u),
+            "credit_note_pdf" => (function () use ($id, $u) {
+                $credit = (new CreditNoteService())->get($id);
+                $pdf = new PDFService();
+                AuditLogService::record($u, "Credit Note Exported", (int) $credit["invoice_id"], ["credit_note" => $id]);
+                header("Content-Type: application/pdf");
+                header('Content-Disposition: attachment; filename="credit-note-' . $id . '.pdf"');
+                echo $pdf->render($pdf->creditNoteHtml($credit));
+                exit();
+            })(),
             "activity" => (function () {
                 [$from, $to] = Validation::range($_GET);
                 $page = max(1, min(1000000, (int) ($_GET["page"] ?? 1)));
@@ -272,40 +362,6 @@ try {
                 );
                 return ["message" => "Invoice sent."];
             })(),
-            "integrations" => [
-                "configured" =>
-                    Config::get("GST_API_URL") !== "" &&
-                    Config::get("GST_API_KEY") !== "",
-                "requests" => DB::all(
-                    "SELECT * FROM integration_requests ORDER BY id DESC LIMIT 50",
-                ),
-            ],
-            "gst_submit" => DB::transaction(function () use (
-                $svc,
-                $id,
-                $body,
-                $u,
-            ) {
-                $invoice = $svc->get($id, true);
-                if ($invoice["status"] !== "Active") {
-                    throw new HttpError(409, "Invoice is cancelled.");
-                }
-                $kind = Validation::choice(
-                    $body["kind"] ?? "",
-                    ["einvoice", "ewaybill"],
-                    "GST operation",
-                );
-                $r = (new GSTIntegrationService())->submit($kind, $invoice);
-                DB::run(
-                    "INSERT INTO integration_requests(invoice_id,kind,status,response) VALUES(?,?,?,?)",
-                    [$id, $kind, "accepted", json_encode($r)],
-                );
-                AuditLogService::record($u, "GST Provider Submission", $id, [
-                    "kind" => $kind,
-                    "reference" => $r["reference"],
-                ]);
-                return $r;
-            }),
             default => throw new HttpError(404, "Endpoint not found."),
         };
     }

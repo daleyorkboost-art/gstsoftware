@@ -2,6 +2,8 @@
 
 Tested locally on 7 September 2026 with PHP 8.3.33, MariaDB 11.4.5, Chrome desktop/headless browser automation, Dompdf 3.1.6 and FPDI 2.6.8. Test data and session fixtures are isolated in a database named `ledger_test`; they are not included in the direct-upload folder.
 
+The table below records the v1.1 baseline run. On 10 September 2026, the v2.0 changes passed JavaScript syntax checks, a full PHP grammar parse of all 41 PHP/template/test files, and `git diff --check`. The current workstation did not expose PHP, MySQL, a running container engine or Poppler, so the updated unit/integration/browser suite and rendered v2.0 PDF visual review remain to be rerun in the configured test environment; they are not claimed as completed here.
+
 ## Automated results
 
 | Area | Evidence |
@@ -58,14 +60,15 @@ The browser used server-side **test sessions written from CLI outside public/**,
 
 1. Configure business name, state, GSTIN, bank details and logo; choose numbering and GST settings.
 2. Add Owner and Staff. Confirm Staff cannot edit/cancel/export/administer unless explicitly granted the relevant permission.
-3. Create a walk-in invoice, then a multi-item customer invoice with HSN, description, fractional quantity, discount, standard/custom GST and payment reference.
-4. Verify intra-state CGST/SGST and inter-state IGST, total GST and round-off; save, reopen, print and download PDF.
-5. Edit an invoice and confirm totals, dashboard, sales/GST/HSN reports and before/after audit snapshots change together.
-6. Duplicate and cancel invoices; verify the duplicate has a new number and cancellation retains its history while reducing sales totals.
-7. Return some and then all items; verify quantity limits, GST adjustments, settlement references and net sales reconciliation.
-8. Export a date range in both mandatory PDFs, CSV and XLSX; confirm counts and complete information.
-9. Create an encrypted backup, change a test record, restore, and verify recovery and audit entry.
-10. Repeat creation/search/edit on mobile and check the actual print/export layout with business data.
+3. Create a walk-in invoice, then a multi-item customer invoice with HSN, description, fractional quantity, both discount modes, standard/custom GST, shipping, and split payment allocations.
+4. Create a partial/due invoice with name, mobile and address; verify the credit ledger, partial clearance, multi-method clearance receipt and customer-history export.
+5. Verify intra-state CGST/SGST and inter-state IGST, total GST and round-off; save, reopen, print and download PDF.
+6. Edit an invoice and confirm totals, dashboard, sales/GST/HSN reports and before/after audit snapshots change together.
+7. Duplicate and cancel invoices; verify the duplicate has a new number and cancellation retains its history while reducing sales totals.
+8. Return some and then all items; verify quantity limits, GST adjustments, settlement references and net sales reconciliation.
+9. Export a date range in both mandatory PDFs, CSV and XLSX; confirm counts and complete information.
+10. Create an encrypted backup, change a test record, restore, and verify recovery and audit entry.
+11. Repeat creation/search/edit on mobile and check the actual print/export layout with business data.
 
 ## Explicit limitations
 

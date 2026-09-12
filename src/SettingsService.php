@@ -25,10 +25,15 @@ final class SettingsService
             [
                 "name" => 160,
                 "address" => 1500,
+                "email" => 190,
+                "account_holder" => 160,
                 "bank_name" => 160,
+                "account_name" => 160,
                 "account_number" => 40,
                 "ifsc" => 11,
                 "branch" => 160,
+                "declaration" => 2000,
+                "financial_year" => 7,
             ]
             as $k => $max
         ) {
@@ -40,6 +45,12 @@ final class SettingsService
             );
         }
         $fields["gstin"] = Validation::gstin($data["gstin"] ?? "");
+        if ($fields["email"] !== "" && !filter_var($fields["email"], FILTER_VALIDATE_EMAIL)) {
+            throw new HttpError(422, "Enter a valid business e-mail address.");
+        }
+        if ($fields["financial_year"] !== "" && !preg_match('/^\d{4}-\d{2}$/D', $fields["financial_year"])) {
+            throw new HttpError(422, "Financial year must use YYYY-YY format.");
+        }
         $fields["state"] = Validation::state($data["state"] ?? "");
         if (
             $fields["gstin"] !== "" &&
@@ -72,13 +83,38 @@ final class SettingsService
     }
     public static function upload(array $file, array $user): array
     {
+        return self::uploadAsset($file, $user, "logo");
+    }
+    public static function uploadSignature(array $file, array $user): array
+    {
+        return self::uploadAsset($file, $user, "signature");
+    }
+    public static function deleteAsset(string $type, array $user): array
+    {
+        $field = Validation::choice($type, ["logo", "signature"], "asset type");
+        DB::transaction(function () use ($field, $user) {
+            $business = DB::one("SELECT * FROM business_profile WHERE id=1 FOR UPDATE");
+            if (($business[$field] ?? "") === "") {
+                return;
+            }
+            DB::run("UPDATE business_profile SET $field='' WHERE id=1");
+            AuditLogService::record(
+                $user,
+                $field === "logo" ? "Logo Removed" : "Signature Removed",
+            );
+        });
+        // Keep the physical file because historical invoice snapshots may use it.
+        return ["message" => $field === "logo" ? "Business logo removed." : "Stamp / signature removed."];
+    }
+    private static function uploadAsset(array $file, array $user, string $field): array
+    {
         if (
             ($file["error"] ?? 1) !== UPLOAD_ERR_OK ||
             $file["size"] > (int) Config::get("LOGO_MAX_BYTES", "2097152")
         ) {
             throw new HttpError(
                 422,
-                "Upload a PNG or JPEG logo within the size limit.",
+                "Upload a PNG or JPEG image within the size limit.",
             );
         }
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file["tmp_name"]);
@@ -99,17 +135,49 @@ final class SettingsService
                 ? imagecreatefrompng($file["tmp_name"])
                 : imagecreatefromjpeg($file["tmp_name"]);
         if (!$image) {
-            throw new HttpError(422, "Unable to read logo.");
+            throw new HttpError(422, "Unable to read image.");
         }
+
+        if ($field === "logo") {
+            $image = self::trimLogoWhitespace($image);
+        }
+
         $name = bin2hex(random_bytes(20)) . ".png";
+        imagesavealpha($image, true);
         imagepng($image, ROOT . "/storage/uploads/" . $name);
         imagedestroy($image);
-        DB::transaction(function () use ($name, $user) {
-            DB::run("UPDATE business_profile SET logo=? WHERE id=1", [$name]);
-            AuditLogService::record($user, "Logo Uploaded");
+        DB::transaction(function () use ($name, $user, $field) {
+            DB::run("UPDATE business_profile SET $field=? WHERE id=1", [$name]);
+            AuditLogService::record($user, $field === "logo" ? "Logo Uploaded" : "Signature Uploaded");
         });
-        return ["logo" => $name];
+        return [$field => $name];
     }
+
+    private static function trimLogoWhitespace(\GdImage $image): \GdImage
+    {
+        foreach ([IMG_CROP_TRANSPARENT, IMG_CROP_THRESHOLD] as $mode) {
+            $candidate = $mode === IMG_CROP_THRESHOLD
+                ? imagecropauto($image, $mode, 5.0, 0xffffff)
+                : imagecropauto($image, $mode);
+
+            if (!$candidate) {
+                continue;
+            }
+
+            $isSmaller = imagesx($candidate) < imagesx($image)
+                || imagesy($candidate) < imagesy($image);
+            if (!$isSmaller || imagesx($candidate) < 5 || imagesy($candidate) < 5) {
+                imagedestroy($candidate);
+                continue;
+            }
+
+            imagedestroy($image);
+            return $candidate;
+        }
+
+        return $image;
+    }
+
     public static function save(array $d, array $u): array
     {
         if (!is_array($d["gst_rates"] ?? null) || count($d["gst_rates"]) > 30) {
@@ -126,13 +194,22 @@ final class SettingsService
         foreach ($d["payments"] as $v) {
             Validation::choice(
                 $v,
-                ["Cash", "UPI", "Card", "Bank Transfer", "Credit"],
+                ["Cash", "UPI", "Card", "Bank Transfer", "Credit", "Other"],
                 "payment method",
             );
+        }
+        if (!array_filter($d["payments"], fn($v) => $v !== "Credit")) {
+            throw new HttpError(422, "Keep at least one non-credit payment method for collections.");
         }
         $settings = [
             "gst_rates" => array_values(array_unique($rates)),
             "gst_max" => $max,
+            "shipping_gst_rate" => Money::number(
+                $d["shipping_gst_rate"] ?? "0",
+                "shipping GST rate",
+                2,
+                $max,
+            ),
             "payments" => array_values(array_unique($d["payments"])),
             "round_to_rupee" => ($d["round_to_rupee"] ?? false) === true,
             "terms" => Validation::text($d["terms"] ?? "", "terms", 2000),

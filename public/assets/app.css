@@ -202,6 +202,21 @@ small {
   padding: 20px 12px 0;
   border-top: 1px solid var(--border);
 }
+.release-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-bottom: 12px;
+  border: 1px solid #b8dfd1;
+  border-radius: 999px;
+  background: #eaf7f2;
+  color: #116d59;
+  padding: 5px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.topbar .release-pill { margin: 0; }
 .profile {
   display: flex;
   gap: 10px;
@@ -823,6 +838,27 @@ dialog::backdrop {
   font-size: 10px;
   color: #9ca89f;
   margin-top: 22px;
+}
+.asset-preview {
+  display: block;
+  max-width: 220px;
+  max-height: 110px;
+  object-fit: contain;
+  padding: 10px;
+  margin-bottom: 14px;
+  border: 1px solid #d8e4dc;
+  border-radius: 8px;
+  background: white;
+}
+.danger-zone {
+  margin-top: 22px;
+  border-color: #e6b8aa;
+}
+.danger-zone .card-head {
+  background: #fff3ef;
+}
+.payment-row {
+  margin-top: 12px;
 }
 @media (min-width: 1600px) {
   .content {

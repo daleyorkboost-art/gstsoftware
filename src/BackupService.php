@@ -14,6 +14,10 @@ final class BackupService
         "system_settings",
         "invoices",
         "invoice_items",
+        "payment_allocations",
+        "credit_accounts",
+        "credit_transactions",
+        "credit_transaction_allocations",
         "activity_logs",
         "invoice_edit_history",
         "credit_notes",
@@ -23,9 +27,9 @@ final class BackupService
     public function create(): string
     {
         $key = hash("sha256", Config::required("APP_KEY"), true);
-        $data = DB::transaction(function () {
+        $collect = function () {
             $d = [
-                "version" => 1,
+                "version" => 2,
                 "created_at" => date(DATE_ATOM),
                 "tables" => [],
                 "logos" => [],
@@ -42,7 +46,8 @@ final class BackupService
                 );
             }
             return $d;
-        });
+        };
+        $data = DB::connection()->inTransaction() ? $collect() : DB::transaction($collect);
         $plain = gzencode(json_encode($data, JSON_THROW_ON_ERROR), 6);
         $iv = random_bytes(12);
         $encrypted = openssl_encrypt(
@@ -64,11 +69,14 @@ final class BackupService
             "-" .
             bin2hex(random_bytes(6)) .
             ".gstbackup";
-        file_put_contents(
+        $written = file_put_contents(
             $path,
             "GSTBACKUP1" . $iv . $tag . $encrypted,
             LOCK_EX,
         );
+        if ($written === false || $written !== strlen("GSTBACKUP1" . $iv . $tag . $encrypted)) {
+            throw new HttpError(500, "Backup could not be written. Check available storage and permissions before continuing.");
+        }
         return $path;
     }
     public function restore(string $path, array $user): void
@@ -104,7 +112,7 @@ final class BackupService
         }
         $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         if (
-            ($data["version"] ?? 0) !== 1 ||
+            ($data["version"] ?? 0) !== 2 ||
             array_keys($data["tables"] ?? []) !== self::TABLES
         ) {
             throw new HttpError(

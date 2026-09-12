@@ -71,6 +71,7 @@ final class FirebaseService
             "uid" => $claims["sub"],
             "email" => strtolower($account["email"] ?? ""),
             "verified" => $account["emailVerified"] ?? false,
+            "auth_time" => (int) $claims["auth_time"],
         ];
     }
     private function decode(string $s): string
@@ -144,6 +145,14 @@ final class FirebaseService
                 $operation,
             $payload,
             ["Authorization: Bearer " . $auth["access_token"]],
+        );
+    }
+    public function sendPasswordReset(string $email): void
+    {
+        HttpClient::request(
+            "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=" .
+                rawurlencode(Config::required("FIREBASE_API_KEY")),
+            ["requestType" => "PASSWORD_RESET", "email" => $email],
         );
     }
 }

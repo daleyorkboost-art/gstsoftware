@@ -47,6 +47,13 @@ check(
     $r["totals"]["igst"] === "34.20" && $r["totals"]["cgst"] === "0.00",
     "inter-state IGST",
 );
+$twoInterstate = $engine->calculate([$item, $item], "29", "27", $settings);
+check(
+    $twoInterstate["totals"]["igst"] === "68.40" &&
+        $twoInterstate["totals"]["cgst"] === "0.00" &&
+        $twoInterstate["totals"]["sgst"] === "0.00",
+    "multiple inter-state items use IGST only",
+);
 foreach (
     [
         "0" => "0.00",
@@ -92,6 +99,18 @@ check(
 );
 $r = $engine->calculate([$item, $item], "29", "29", $settings);
 check($r["totals"]["gst"] === "68.40", "multiple items aggregate");
+$v2Settings = $settings + ["shipping_gst_rate" => "18"];
+$r = $engine->calculate([[...$item, "discount_mode" => "Percent", "discount_value" => "10"]], "29", "29", $v2Settings, "50");
+check($r["items"][0]["discount"] === "20.00", "percentage discount calculation");
+check($r["totals"]["shipping_charges"] === "50.00" && $r["totals"]["shipping_gst"] === "9.00", "configured shipping tax");
+$shippingOnly = [[...$item, "quantity" => "1", "rate" => "0", "discount" => "0"]];
+$r = $engine->calculate($shippingOnly, "29", "29", $v2Settings, "0.28");
+check($r["totals"]["shipping_gst"] === "0.05" && $r["totals"]["cgst"] === "0.03" && $r["totals"]["sgst"] === "0.02", "shipping odd paise reconcile");
+$r = $engine->calculate($shippingOnly, "29", "27", $v2Settings, "100");
+check($r["totals"]["igst"] === "18.00" && $r["totals"]["grand_total"] === "118.00", "shipping-only interstate total");
+$r = $engine->calculate($shippingOnly, "29", "29", [...$v2Settings, "shipping_gst_rate" => "0"], "100");
+check($r["totals"]["taxable"] === "100.00" && $r["totals"]["gst"] === "0.00", "zero-rated shipping included in taxable");
+rejects(fn() => $engine->calculate([[...$item, "discount_mode" => "Percent", "discount_value" => "101"]], "29", "29", $v2Settings), "reject percentage discount above 100");
 check(
     Money::round("1.005") === "1.01" && Money::round("-1.005") === "-1.01",
     "half-up positive and negative",

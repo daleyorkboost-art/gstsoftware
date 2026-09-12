@@ -1,4 +1,4 @@
-import { api, setCsrf } from "./api.js";
+import { api, setCsrf } from "./api.js?v=2.1.2";
 let firebase = {};
 let refreshTimer;
 export async function configure() {
@@ -42,6 +42,14 @@ export async function signIn(email, password) {
   scheduleRefresh(f.refreshToken);
   return session.user;
 }
+export async function reauthenticate(email, password) {
+  const result = await firebaseRequest("signInWithPassword", {
+    email,
+    password,
+    returnSecureToken: true,
+  });
+  return result.idToken;
+}
 function scheduleRefresh(token) {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(
@@ -72,10 +80,7 @@ function scheduleRefresh(token) {
   );
 }
 export async function resetPassword(email) {
-  await firebaseRequest("sendOobCode", {
-    requestType: "PASSWORD_RESET",
-    email,
-  });
+  await api("password_reset", { email: email.trim().toLowerCase() });
 }
 export async function activate(email, password) {
   const f = await firebaseRequest("signUp", {

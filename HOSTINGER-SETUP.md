@@ -1,6 +1,10 @@
+# Updating your existing site?
+
+You already migrated to v2.0: follow [the v2.1 update steps](docs/DEPLOY-V2.1-HOSTINGER.md). This `gstsoftware` project root is the complete deployment folder; upload its application contents together. Its complete `.env` and storage structure are retained. The fresh-install instructions below are for a NEW EMPTY database only.
+
 # Direct upload to Hostinger — no ZIP needed
 
-Upload the **contents of `hostinger-upload/`** into your website's `public_html` using File Manager. This clean folder includes production dependencies, your Firebase web configuration and empty private storage. Do not upload the development workspace's `tmp/`, `.env`, test database or generated storage files.
+Upload this project root's application contents into your website's `public_html` using File Manager. The same root includes production dependencies, the complete `.env`, Firebase configuration and private storage structure. There is no second deployment folder or ZIP.
 
 ## 1. Create the database
 
@@ -15,7 +19,7 @@ Hostinger instructions: [database creation and import](https://www.hostinger.com
 
 ## 2. Upload the files
 
-Open Files → File Manager → `public_html`. Upload everything **inside** `hostinger-upload/`, preserving folders. Ensure hidden files `.env` and both `.htaccess` files are included. The result must look like:
+Open Files → File Manager → `public_html`. Upload the application files from this project root, preserving folders. Ensure hidden files `.env` and both `.htaccess` files are included. The result must look like:
 
 ```text
 public_html/

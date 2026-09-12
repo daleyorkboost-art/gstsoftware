@@ -192,6 +192,7 @@ check(
     $credit["totals"]["total"] === "230.00",
     "partial credit proportional original GST",
 );
+check($credit["number"] === "CN-1", "credit note numbering starts at one");
 check(
     $report->dashboard($range)["net_sales"] === "230.00",
     "credit adjusts net sales",

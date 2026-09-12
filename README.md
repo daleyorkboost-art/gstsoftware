@@ -1,18 +1,20 @@
-# Ledger — GST Sales Billing
+# Ledger — GST Sales Billing v2.0
 
-A PHP/MySQL billing application built from the supplied SRS v1.1. Vanilla HTML, CSS and JavaScript; Firebase Authentication; PDO prepared statements; BCMath accounting; server-generated PDF and XLSX exports. One installation serves one business. **There is no product master, inventory or stock database.** Items are saved only inside invoices.
+A PHP/MySQL billing application implementing the supplied SRS v2.0 while retaining the v1.1 baseline. Vanilla HTML, CSS and JavaScript; Firebase Authentication; PDO prepared statements; BCMath accounting; server-generated PDF and XLSX exports. One installation serves one business. **There is no product master, inventory or stock database.** Items are saved only inside invoices.
 
 For direct File Manager upload, start with [HOSTINGER-SETUP.md](HOSTINGER-SETUP.md) and use the clean `hostinger-upload/` folder. Then see [configuration](#configuration). See [requirements coverage](docs/REQUIREMENTS.md), [accounting decisions](docs/DECISIONS.md), [test evidence](docs/TESTING.md), and [external integration contracts](docs/INTEGRATIONS.md).
 
 ## Included features
 
 - Admin, Owner and Staff access, granular server-side permissions, local account activation, Firebase provisioning, account disabling and last-admin protection.
+- Fresh-credential Admin password resets, permanent Owner/Staff deletion, and protected transaction-data deletion with a pre-deletion encrypted backup.
 - Dashboard with sales, GST, invoice counts, cancellations, credit sales, today's sales, dated credit adjustments, net sales and recent invoices.
-- Business identity, GSTIN format validation, bank information and securely re-encoded logo uploads.
-- Invoice-only item entry, optional customers, explicit place of supply, standard/custom GST rates, discounts, decimal calculations, round-off and all five payment methods.
+- Business identity, GSTIN format validation, full bank/declaration/financial-year fields, and securely re-encoded logo/signature uploads with previews.
+- Expanded buyer, consignee and dispatch fields; flat-or-percent line discounts; separately displayed shipping with configured GST treatment.
+- Full, partial and split payments with automatic paid/due status, credit-customer ledgers, multi-method clearances, receipt PDFs and customer-history CSV exports.
 - Sequential numbers; history/search/date filtering; pagination; create, view, edit, duplicate and cancel; optimistic edit versioning and immutable UI audit history.
 - Daily/date-wise, monthly, customer, GST component, HSN and credit note reports derived from current accounting records.
-- Quantity-based credit notes and sales returns, original-rate GST adjustments, refund/adjustment references and cumulative rounding reconciliation.
+- Quantity-based credit notes and sales returns, original-rate GST adjustments, refund/adjustment references, cumulative rounding reconciliation and formal bordered credit-note PDFs.
 - A4 PDF, A4/80 mm browser printing, complete date-range invoice PDF, tabular audit PDF, CSV and genuine XLSX.
 - Consistent export snapshots, progress feedback, bounded rendering batches, separate invoice pages, ownership-checked downloads and expired-file cleanup.
 - WhatsApp message preparation, credential-driven SMTP invoice attachments, and an adapter interface for government GST providers.
@@ -36,6 +38,8 @@ No Node, Python, Docker, build server or persistent worker is required in produc
 1. Upload the contents of `hostinger-upload/` directly through File Manager; no ZIP or extraction is needed. Its `.env` contains your Firebase web configuration and a production application key. Do not upload `tmp/`, the development root `.env`, database tools or test session files from the working directory.
 2. Create a MySQL database and database user in hPanel. Use the exact hPanel-prefixed names and assign the user to this database.
 3. In phpMyAdmin, select the empty database and import **`database/schema.sql` followed by `database/seed.sql`**. The seed includes roles, permissions and default settings, but no users, invoices or fake statistics. Do not re-import these initial setup files into a populated database.
+
+For an existing v1.1 installation, take and verify a backup, deploy the v2.0 code, then run **`database/migrate-v2.0.sql` once** instead of re-importing the initialization files. Legacy Credit invoices with a mobile number are brought into the ledger; any legacy Credit invoice lacking the new mandatory name/mobile/address data must be opened and completed before clearance.
 4. Edit the existing `.env` supplied in the direct-upload folder and fill in the values below. Preserve the included Firebase settings and generated APP_KEY. For a future fresh installation without a prefilled `.env`, copy `.env.example` and generate an application key with `php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"` or a cryptographically secure password generator. Keep this key for restoring encrypted backups.
 5. Configure Firebase Email/Password authentication as described below. Set `BOOTSTRAP_ADMIN_EMAIL` to the exact email of your first administrator.
 6. Point the domain/subdomain document root to the package's **`public/`** directory if your hosting plan permits it.

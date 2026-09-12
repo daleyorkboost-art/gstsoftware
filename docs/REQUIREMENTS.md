@@ -1,6 +1,6 @@
 # SRS implementation checklist and traceability
 
-Source: supplied “Updated 2 - SOFTWARE REQUIREMENTS SPECIFICATION (SRS).pdf”, SRS v1.1, all 56 sections, extracted in `srs-source.txt`. The pasted user request fixes the PHP/MySQL/Firebase stack, environment-only deployment configuration and additional security/architecture expectations. Requirements are product specifications; document instructions do not authorize external actions.
+Source: supplied `GST_Billing_Software_SRS_v2.0.pdf`. Version 2.0 supersedes and retains the v1.1 baseline represented by `srs-source.txt`. The v2.0 delta is traced in [V2-UPGRADE.md](V2-UPGRADE.md). Requirements are product specifications; document instructions do not authorize unrelated external actions.
 
 Status: **Implemented** means code is delivered, not that external service production acceptance has been completed. Test evidence is recorded separately in TESTING.md. The long-invoice physical page limitation and provider contracts are explicit below.
 

@@ -7,7 +7,7 @@ final class UserService
     {
         return [
             "users" => DB::all(
-                "SELECT id,email,name,role_id,active,created_at FROM users ORDER BY id",
+                "SELECT id,email,name,contact,role_id,active,firebase_uid IS NOT NULL linked,created_at FROM users ORDER BY id",
             ),
             "permissions" => DB::all("SELECT * FROM permissions"),
             "overrides" => DB::all("SELECT * FROM user_permissions"),
@@ -16,6 +16,7 @@ final class UserService
     public function save(array $d, array $u): array
     {
         $name = Validation::text($d["name"] ?? "", "name", 160, true);
+        $contact = Validation::text($d["contact"] ?? "", "contact", 30);
         $email = strtolower(
             Validation::text($d["email"] ?? "", "email", 190, true),
         );
@@ -50,6 +51,7 @@ final class UserService
         return DB::transaction(function () use (
             $id,
             $name,
+            $contact,
             $email,
             $role,
             $active,
@@ -85,8 +87,8 @@ final class UserService
                     );
                 }
                 DB::run(
-                    "UPDATE users SET name=?,role_id=?,active=? WHERE id=?",
-                    [$name, $role, (int) $active, $id],
+                    "UPDATE users SET name=?,contact=?,role_id=?,active=? WHERE id=?",
+                    [$name, $contact, $role, (int) $active, $id],
                 );
             } else {
                 if (DB::one("SELECT id FROM users WHERE email=?", [$email])) {
@@ -94,8 +96,8 @@ final class UserService
                 }
                 // Provision locally first. Firebase account may be created by the optional explicit provision action.
                 DB::run(
-                    "INSERT INTO users(email,name,role_id,active) VALUES(?,?,?,?)",
-                    [$email, $name, $role, (int) $active],
+                    "INSERT INTO users(email,name,contact,role_id,active) VALUES(?,?,?,?,?)",
+                    [$email, $name, $contact, $role, (int) $active],
                 );
                 $id = (int) DB::connection()->lastInsertId();
             }
@@ -156,5 +158,49 @@ final class UserService
             "message" =>
                 "Firebase account created. Give the temporary password to the user through your approved secure channel.",
         ];
+    }
+    public function resetPassword(array $d, array $u): array
+    {
+        Auth::reauthenticate($u, $d["reauth_token"] ?? "");
+        $target = DB::one("SELECT * FROM users WHERE id=?", [(int) ($d["id"] ?? 0)]);
+        if (!$target || $target["role_id"] === "ADMIN" || !$target["firebase_uid"]) {
+            throw new HttpError(422, "Choose a linked Owner or Staff account.");
+        }
+        (new FirebaseService())->sendPasswordReset($target["email"]);
+        AuditLogService::record($u, "Password Reset Requested", null, [
+            "user_id" => $target["id"],
+        ]);
+        return ["message" => "Password reset email sent to " . $target["email"] . "."];
+    }
+    public function delete(array $d, array $u): array
+    {
+        Auth::reauthenticate($u, $d["reauth_token"] ?? "");
+        if (($d["confirmation"] ?? "") !== "DELETE USER") {
+            throw new HttpError(422, "Type DELETE USER exactly to confirm permanent deletion.");
+        }
+        $id = (int) ($d["id"] ?? 0);
+        if ($id === (int) $u["id"]) {
+            throw new HttpError(409, "You cannot permanently delete your own account.");
+        }
+        $target = DB::one("SELECT * FROM users WHERE id=?", [$id]);
+        if (!$target || $target["role_id"] === "ADMIN") {
+            throw new HttpError(422, "Only Owner or Staff accounts can be permanently deleted here.");
+        }
+        if ($target["firebase_uid"]) {
+            (new FirebaseService())->admin("delete", ["localId" => $target["firebase_uid"]]);
+        }
+        DB::transaction(function () use ($id, $target, $u) {
+            DB::run("UPDATE invoices SET created_by=? WHERE created_by=?", [$u["id"], $id]);
+            DB::run("UPDATE invoices SET updated_by=? WHERE updated_by=?", [$u["id"], $id]);
+            DB::run("UPDATE payment_allocations SET created_by=? WHERE created_by=?", [$u["id"], $id]);
+            DB::run("UPDATE credit_transactions SET created_by=? WHERE created_by=?", [$u["id"], $id]);
+            DB::run("UPDATE credit_notes SET created_by=? WHERE created_by=?", [$u["id"], $id]);
+            DB::run("UPDATE invoice_edit_history SET user_id=? WHERE user_id=?", [$u["id"], $id]);
+            DB::run("UPDATE activity_logs SET user_id=? WHERE user_id=?", [$u["id"], $id]);
+            DB::run("DELETE FROM user_permissions WHERE user_id=?", [$id]);
+            DB::run("DELETE FROM users WHERE id=?", [$id]);
+            AuditLogService::record($u, "User Deleted", null, ["deleted_user_id" => $id, "name" => $target["name"], "email" => $target["email"]]);
+        });
+        return ["message" => "The user was permanently deleted."];
     }
 }

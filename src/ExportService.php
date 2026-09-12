@@ -27,8 +27,10 @@ final class ExportService
         $base = $this->path($id);
         $file = fopen($base . ".jsonl", "xb");
         $count = 0;
+        $generation = 0;
         try {
-            DB::transaction(function () use ($from, $to, $file, &$count) {
+            DB::transaction(function () use ($from, $to, $file, &$count, &$generation) {
+                $generation = (int) DB::one("SELECT COALESCE(MAX(id),0) n FROM activity_logs WHERE action='Bulk Transaction Deletion'")["n"];
                 $last = 0;
                 $service = new InvoiceService();
                 do {
@@ -59,6 +61,7 @@ final class ExportService
         $job = [
             "id" => $id,
             "user_id" => $u["id"],
+            "transaction_generation" => $generation,
             "kind" => $kind,
             "total" => $count,
             "done" => 0,
@@ -91,6 +94,10 @@ final class ExportService
             $job["expires"] < time()
         ) {
             throw new HttpError(404, "Export expired or not found.");
+        }
+        $generation = (int) DB::one("SELECT COALESCE(MAX(id),0) n FROM activity_logs WHERE action='Bulk Transaction Deletion'")["n"];
+        if ((int) ($job["transaction_generation"] ?? 0) !== $generation) {
+            throw new HttpError(404, "Export was invalidated by transaction-data deletion. Create a new export.");
         }
         Auth::require(
             $u,
@@ -154,6 +161,12 @@ final class ExportService
                         "GST",
                         "Total INR",
                         "Payment",
+                        "Payment Status",
+                        "Amount Paid",
+                        "Amount Due",
+                        "Shipping Charges",
+                        "Shipping GST Rate (%)",
+                        "Shipping GST (included in total GST)",
                         "Status",
                     ]);
                 }
@@ -175,6 +188,12 @@ final class ExportService
                         $i["gst"],
                         $i["grand_total"],
                         $i["payment_method"],
+                        $i["payment_status"],
+                        $i["amount_paid"],
+                        $i["amount_due"],
+                        $i["shipping_charges"],
+                        $i["shipping_gst_rate"],
+                        $i["shipping_gst"],
                         $i["status"],
                     ];
                     fputcsv($out, array_map([self::class, "csvSafe"], $values));
@@ -185,7 +204,7 @@ final class ExportService
                 $pdf = new PDFService();
                 $html =
                     $job["kind"] === "audit"
-                        ? $pdf->auditHtml($rows, $job["done"])
+                        ? $pdf->auditHtml($rows, $job["done"], $job["from"], $job["to"])
                         : implode("", array_map([$pdf, "invoiceHtml"], $rows));
                 $part = $base . ".part" . count($job["parts"]) . ".pdf";
                 file_put_contents(

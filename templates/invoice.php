@@ -1,79 +1,32 @@
-<?php /** @var array $invoice */ $b = $invoice["business"]; ?>
+<?php
+$b = $invoice["business"];
+$asset = function (string $field) use ($b): string {
+    $name = $b[$field] ?? "";
+    return $name && preg_match('/^[a-f0-9]{40}\.png$/D', $name) && is_file(ROOT . "/storage/uploads/" . $name)
+        ? "data:image/png;base64," . base64_encode(file_get_contents(ROOT . "/storage/uploads/" . $name))
+        : "";
+};
+$logo = $asset("logo");
+$signature = $asset("signature");
+$year = \App\DocumentData::financialYear($invoice["invoice_date"]);
+if (!$year) {
+    $y = (int) substr($invoice["invoice_date"], 0, 4);
+    $m = (int) substr($invoice["invoice_date"], 5, 2);
+    $start = $m < 4 ? $y - 1 : $y;
+    $year = $start . "-" . substr((string) ($start + 1), -2);
+}
+?>
 <article class="invoice-document">
-<header class="invoice-header"><div><?php if (
-    !empty($b["logo"]) &&
-    preg_match('/^[a-f0-9]{40}\.png$/D', $b["logo"]) &&
-    is_file(ROOT . "/storage/uploads/" . $b["logo"])
-): ?><img class="business-logo" src="data:image/png;base64,<?= base64_encode(
-    file_get_contents(ROOT . "/storage/uploads/" . $b["logo"]),
-) ?>" alt="Business logo"><?php endif; ?><h1><?= e(
-    $b["name"],
-) ?></h1><div><?= nl2br(e($b["address"])) ?></div><div>GSTIN: <?= e(
-    $b["gstin"] ?: "Not provided",
-) ?> · State: <?= e(
-     $b["state"],
- ) ?></div></div><div class="invoice-number"><h2>TAX INVOICE</h2><strong><?= e(
-    $invoice["invoice_number"],
-) ?></strong><p><?= e($invoice["invoice_date"]) ?></p><b><?= e(
-    $invoice["status"],
-) ?></b></div></header>
-<table class="parties"><tr><td><span class="eyebrow">BILL TO</span><h3><?= e(
-    $invoice["customer_name"] ?: "Walk-in customer",
-) ?></h3><?= nl2br(e($invoice["billing_address"])) ?><br><?= e(
-    $invoice["customer_mobile"],
-) ?><br>GSTIN: <?= e($invoice["customer_gstin"] ?: "—") ?><br>State: <?= e(
-    $invoice["customer_state"] ?: "—",
-) ?> · <?= e(
-     $invoice["customer_type"],
- ) ?></td><td><span class="eyebrow">SHIP TO</span><p><?= nl2br(
-    e($invoice["shipping_address"] ?: $invoice["billing_address"]),
-) ?></p>Place of supply: <?= e(
-    $invoice["place_of_supply"],
-) ?><br>Transporter: <?= e($invoice["transporter"]) ?><br>Vehicle: <?= e(
-    $invoice["vehicle_number"],
-) ?></td></tr></table>
-<table class="invoice-items"><thead><tr><th>#</th><th>Item / HSN / Description</th><th>Qty / unit</th><th>Rate</th><th>Discount</th><th>Taxable</th><th>GST %</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total</th></tr></thead><tbody><?php foreach (
-    $invoice["items"]
-    as $n => $item
-): ?><tr><td><?= $n + 1 ?></td><td><b><?= e(
-    $item["product_name"],
-) ?></b><br><?= e($item["hsn_sac"]) ?><br><?= nl2br(
-    e($item["description"]),
-) ?></td><td><?= e($item["quantity"]) ?><br><?= e(
-    $item["unit"],
-) ?></td><?php foreach (
-    ["rate", "discount", "taxable", "gst_rate", "cgst", "sgst", "igst", "total"]
-    as $key
-): ?><td class="num"><?= e(
-    $item[$key],
-) ?></td><?php endforeach; ?></tr><?php endforeach; ?></tbody></table>
-<table class="invoice-bottom"><tr><td class="bank"><h3>Payment & bank details</h3><p><?= e(
-    $invoice["payment_method"],
-) ?> · Reference: <?= e($invoice["payment_reference"] ?: "—") ?></p><?= e(
-    $b["bank_name"],
-) ?><br>Account: <?= e($b["account_number"]) ?><br>IFSC: <?= e(
-    $b["ifsc"],
-) ?> · <?= e($b["branch"]) ?><h3>Terms & notes</h3><?= nl2br(
-    e($invoice["notes"]),
-) ?></td><td><table class="totals-table"><?php foreach (
-    [
-        "subtotal" => "Subtotal",
-        "discount" => "Discount",
-        "taxable" => "Taxable amount",
-        "cgst" => "CGST",
-        "sgst" => "SGST",
-        "igst" => "IGST",
-        "gst" => "Total GST",
-        "round_off" => "Round-off",
-        "grand_total" => "Grand total (INR)",
-    ]
-    as $key => $label
-): ?><tr class="<?= $key === "grand_total"
-    ? "grand"
-    : "" ?>"><td><?= $label ?></td><td class="num"><?= e(
-    $invoice[$key],
-) ?></td></tr><?php endforeach; ?></table></td></tr></table>
-<footer class="invoice-footer"><span>Amounts in INR. GSTIN format is not registration verification.</span><div class="signature">For <?= e(
-    $b["name"],
-) ?><br><br><br>Authorized signature</div></footer>
+<header class="invoice-header"><div class="business-identity"><?php if ($logo): ?><div class="business-logo-wrap"><img class="business-logo" src="<?= e($logo) ?>" alt="Business logo"></div><?php endif; ?><div class="business-information"><h1><?= e($b["name"]) ?></h1><div><?= nl2br(e($b["address"])) ?></div><div>GSTIN: <?= e($b["gstin"] ?: "Not provided") ?> · E-mail: <?= e($b["email"] ?? "") ?><br>State: <?= e(\App\DocumentData::stateName($b["state"])) ?> · State code: <?= e($b["state"]) ?></div></div></div><div class="invoice-number"><h2>TAX INVOICE</h2><strong><?= e($invoice["invoice_number"]) ?></strong><p>Dated: <?= e($invoice["invoice_date"]) ?></p><b><?= e($invoice["status"] === "Cancelled" ? "Cancelled" : $invoice["payment_status"]) ?></b></div></header>
+<table class="document-details bordered"><tr><td>Delivery note<br><b><?= e($invoice["delivery_note"]) ?></b></td><td>Mode / terms of payment<br><b><?= e($invoice["payment_terms"]) ?></b></td><td>Buyer's order no.<br><b><?= e($invoice["buyer_order_number"]) ?></b></td><td>Dated<br><b><?= e($invoice["buyer_order_date"] ?? "") ?></b></td></tr><tr><td>Dispatch document no.<br><b><?= e($invoice["dispatch_doc_number"]) ?></b></td><td>Delivery note date<br><b><?= e($invoice["delivery_note_date"] ?? "") ?></b></td><td>Dispatch through<br><b><?= e($invoice["dispatch_through"] ?: $invoice["transporter"]) ?></b></td><td>Destination<br><b><?= e($invoice["destination"]) ?></b></td></tr></table>
+<table class="parties bordered"><tr><td><span class="eyebrow">CONSIGNEE (SHIP TO)</span><h3><?= e($invoice["shipping_name"] ?: $invoice["customer_name"] ?: "Walk-in customer") ?></h3><?= nl2br(e($invoice["shipping_address"] ?: $invoice["billing_address"])) ?><br><?= e($invoice["shipping_mobile"] ?: $invoice["customer_mobile"]) ?> · <?= e($invoice["shipping_email"]) ?><br>State: <?= e(\App\DocumentData::stateName($invoice["shipping_state"] ?: $invoice["customer_state"] ?: "—")) ?> · Code: <?= e($invoice["shipping_state"] ?: $invoice["customer_state"] ?: "—") ?></td><td><span class="eyebrow">BUYER (BILL TO)</span><h3><?= e($invoice["customer_name"] ?: "Walk-in customer") ?></h3><?= nl2br(e($invoice["billing_address"])) ?><br><?= e($invoice["customer_mobile"]) ?> · <?= e($invoice["customer_email"]) ?><br>GSTIN: <?= e($invoice["customer_gstin"] ?: "—") ?><br>State: <?= e(\App\DocumentData::stateName($invoice["customer_state"] ?: "—")) ?> · Code: <?= e($invoice["customer_state"] ?: "—") ?> · Place of supply: <?= e(\App\DocumentData::stateName($invoice["place_of_supply"])) ?> (<?= e($invoice["place_of_supply"]) ?>)</td></tr></table>
+<table class="invoice-items bordered"><thead><tr><th>Sl.</th><th>Description of Goods</th><th>HSN/SAC</th><th>Quantity</th><th>Rate</th><th>Unit</th><th>Disc.</th><th>Amount</th></tr></thead><tbody><?php foreach ($invoice["items"] as $n => $item): ?><tr><td><?= $n + 1 ?></td><td><b><?= e($item["product_name"]) ?></b><br><?= nl2br(e($item["description"])) ?></td><td><?= e($item["hsn_sac"]) ?></td><td class="num"><?= e($item["quantity"]) ?></td><td class="num"><?= e($item["rate"]) ?></td><td><?= e($item["unit"]) ?></td><td class="num"><?= e($item["discount_mode"] === "Percent" ? $item["discount_value"] . "%" : $item["discount"]) ?></td><td class="num"><?= e($item["taxable"]) ?></td></tr><?php endforeach; ?></tbody></table>
+<table class="totals-table bordered calculation-grid">
+<?php $summary = ["subtotal" => "Product subtotal", "discount" => "Discount total", "shipping_charges" => "Shipping charges", "taxable" => "Taxable amount", "cgst" => "CGST", "sgst" => "SGST", "igst" => "IGST", "gst" => "Total GST", "shipping_gst" => "Of which shipping GST (" . $invoice["shipping_gst_rate"] . "%)", "round_off" => "Round-off", "grand_total" => "Grand total", "amount_paid" => "Amount paid", "amount_due" => "Amount due", "payment_status" => "Payment status"]; foreach (array_chunk($summary, 2, true) as $pair): ?><tr><?php foreach ($pair as $key => $label): ?><td class="<?= $key === "grand_total" ? "grand" : "" ?>"><?= e($label) ?></td><td class="num <?= $key === "grand_total" ? "grand" : "" ?>"><?= e($invoice[$key]) ?></td><?php endforeach; ?></tr><?php endforeach; ?>
+</table>
+<p class="words"><b>Amount Chargeable (In Words):</b> <?= e($invoice["amount_words"]) ?></p>
+<div class="payment-summary"><b>Initial payment allocations:</b> <?php foreach ($invoice["payment_allocations"] as $payment): ?><span><?= e($payment["method"]) ?>: INR <?= e($payment["amount"]) ?> <?= e($payment["reference"]) ?></span><?php endforeach; ?><?php if (!$invoice["payment_allocations"]): ?>Credit / Due<?php endif; ?></div>
+<h3>Tax summary</h3><table class="tax-summary bordered"><thead><tr><th>HSN/SAC</th><th>Taxable value</th><?php if ($invoice["place_of_supply"] === $b["state"]): ?><th>CGST rate</th><th>CGST amount</th><th>SGST rate</th><th>SGST amount</th><?php else: ?><th>IGST rate</th><th>IGST amount</th><?php endif; ?><th>Total tax</th></tr></thead><tbody><?php foreach ($invoice["tax_summary"] as $tax): ?><tr><td><?= e($tax["hsn_sac"]) ?></td><td class="num"><?= e($tax["taxable"]) ?></td><?php if ($invoice["place_of_supply"] === $b["state"]): ?><td class="num"><?= e(bcdiv($tax["gst_rate"], "2", 2)) ?>%</td><td class="num"><?= e($tax["cgst"]) ?></td><td class="num"><?= e(bcdiv($tax["gst_rate"], "2", 2)) ?>%</td><td class="num"><?= e($tax["sgst"]) ?></td><?php else: ?><td class="num"><?= e($tax["gst_rate"]) ?>%</td><td class="num"><?= e($tax["igst"]) ?></td><?php endif; ?><td class="num"><?= e($tax["gst"]) ?></td></tr><?php endforeach; ?></tbody></table>
+<p class="words"><b>Tax Amount (In Words):</b> <?= e($invoice["tax_words"]) ?></p><table class="authorization"><tr><td><h3>Company bank details</h3>A/c Holder: <?= e($b["account_holder"] ?? "") ?> · Bank: <?= e($b["bank_name"]) ?> · A/c Name: <?= e($b["account_name"] ?? "") ?><br>A/c No.: <?= e($b["account_number"]) ?><br>Branch: <?= e($b["branch"]) ?> · IFSC: <?= e($b["ifsc"]) ?><h3>Declaration</h3><?= nl2br(e(($b["declaration"] ?? "") ?: $invoice["notes"])) ?><br>Terms of delivery: <?= e($invoice["terms_of_delivery"]) ?></td><td class="signature">For <?= e($b["name"]) ?> <?= e($year) ?><br><?php if ($signature): ?><img src="<?= e($signature) ?>" alt="Authorized signature"><?php else: ?><br><br><span>Signature not configured</span><?php endif; ?><br>Authorised Signatory</td></tr></table>
+<footer class="invoice-footer"><b>SUBJECT TO KALAHANDI JURISDICTION</b><span>This is a computer generated invoice</span></footer>
 </article>

@@ -3,7 +3,7 @@ require dirname(__DIR__) . "/config/bootstrap.php";
 try {
     App\Auth::start();
     $u = App\Auth::user();
-    App\Auth::require($u, "view_invoice");
+    App\Auth::require($u, "print_invoice");
     $invoice = (new App\InvoiceService())->get((int) ($_GET["id"] ?? 0));
 } catch (Throwable $e) {
     http_response_code($e instanceof App\HttpError ? $e->status : 500);
@@ -28,5 +28,4 @@ header(
     $_SESSION["csrf"],
 ) ?>"><div class="no-print"><a href="index.php#invoice/<?= e(
     $invoice["id"],
-) ?>">Back to invoice</a> <button id="print">Print A4</button> <button id="thermal">Print thermal (80 mm)</button><p id="print-error" role="alert"></p></div><?php require ROOT .
-    "/templates/invoice.php"; ?><script src="assets/print.js"></script></body></html>
+) ?>">Back to invoice</a> <button id="print">Print A4</button> <button id="thermal">Print thermal (80 mm)</button><p id="print-error" role="alert"></p></div><?= (new App\PDFService())->invoiceHtml($invoice) ?><script src="assets/print.js"></script></body></html>

@@ -1,5 +1,5 @@
-import { api, setCsrf, downloadPost } from "./api.js";
-import { configure, signIn, signOut, resetPassword, activate } from "./auth.js";
+import { api, setCsrf, downloadPost } from "./api.js?v=2.1.2";
+import { configure, signIn, signOut, resetPassword, activate, reauthenticate } from "./auth.js?v=2.1.2";
 import {
   esc,
   money,
@@ -17,9 +17,10 @@ import {
   confirmAction,
   dateFilters,
   table,
-} from "./ui.js";
-import { renderEditor } from "./invoice.js";
+} from "./ui.js?v=2.1.2";
+import { renderEditor } from "./invoice.js?v=2.1.2";
 const app = document.querySelector("#app");
+const release = "v2.1.2";
 let user,
   settings,
   business,
@@ -31,13 +32,13 @@ const nav = [
   ["create", "Create invoice", "＋", "create_invoice"],
   ["reports", "Reports", "▤", "view_reports"],
   ["exports", "Exports", "↗", "export_invoice"],
-  ["credits", "Credit notes", "↶", "manage_credit_notes"],
+  ["credits", "Credit invoices", "↗", "manage_credit_invoices"],
+  ["credit-notes", "Credit notes", "↶", "manage_credit_notes"],
   ["activity", "Activity log", "◫", "view_activity_logs"],
   ["business", "Business profile", "⌂", "manage_business_profile"],
   ["users", "Team & permissions", "♧", "manage_users"],
   ["settings", "Settings", "⚙", "manage_settings"],
   ["backups", "Backup & restore", "▤", "manage_backups"],
-  ["integrations", "GST integrations", "◇", "manage_settings"],
 ];
 function heading(title, subtitle, actions = "") {
   return `<div class="page-heading"><div><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions">${actions}</div></div>`;
@@ -53,12 +54,8 @@ function invoiceColumns() {
     ["invoice_date", "Date"],
     ["customer_name", "Customer", (v) => esc(v || "Walk-in customer")],
     ["grand_total", "Amount", (v) => `<b>${money(v)}</b>`],
-    [
-      "payment_method",
-      "Payment",
-      (v) =>
-        `<span class="badge ${v === "Credit" ? "credit" : ""}">${esc(v)}</span>`,
-    ],
+    ["payment_status", "Payment", (v) => `<span class="badge ${v === "Due" ? "credit" : ""}">${esc(v)}</span>`],
+    ["amount_due", "Due", money],
     [
       "status",
       "Status",
@@ -123,7 +120,7 @@ async function startWorkspace() {
     )
     .join(
       "",
-    )}</nav><div class="sidebar-footer"><div class="profile"><span class="avatar">${esc(user.name[0]?.toUpperCase())}</span><div><b>${esc(user.name)}</b><small>${esc(user.role_id)} ACCOUNT</small></div></div><button id="logout" class="text-button">Sign out ↗</button></div></aside><div class="workspace"><header class="topbar"><button class="menu-toggle" aria-label="Toggle navigation">☰</button><div class="breadcrumb">Workspace <span> / </span> <b id="crumb">Overview</b></div><div class="topbar-right"><span class="secure-pill">● Secure workspace</span><span class="workspace-name">${esc(business.name || "Your business")}</span><span class="avatar">${esc((business.name || "B")[0])}</span></div></header><main id="content" class="content"></main></div></div>`;
+    )}</nav><div class="sidebar-footer"><span class="release-pill">Updated ${release}</span><div class="profile"><span class="avatar">${esc(user.name[0]?.toUpperCase())}</span><div><b>${esc(user.name)}</b><small>${esc(user.role_id)} ACCOUNT</small></div></div><button id="logout" class="text-button">Sign out ↗</button></div></aside><div class="workspace"><header class="topbar"><button class="menu-toggle" aria-label="Toggle navigation">☰</button><div class="breadcrumb">Workspace <span> / </span> <b id="crumb">Overview</b></div><div class="topbar-right"><span class="secure-pill">● Secure workspace</span><span class="release-pill">${release}</span><span class="workspace-name">${esc(business.name || "Your business")}</span><span class="avatar">${esc((business.name || "B")[0])}</span></div></header><main id="content" class="content"></main></div></div>`;
   app.querySelector(".menu-toggle").onclick = () =>
     app.querySelector(".shell").classList.toggle("menu-open");
   app.querySelector("#logout").onclick = async () => {
@@ -191,16 +188,16 @@ async function route() {
         await usersPage(root);
         break;
       case "credits":
-        await creditsPage(root);
+        await creditInvoicesPage(root);
+        break;
+      case "credit-notes":
+        await creditNotesPage(root);
         break;
       case "activity":
         await activityPage(root);
         break;
       case "backups":
         backupPage(root);
-        break;
-      case "integrations":
-        await integrationsPage(root);
         break;
       default:
         throw new Error("Page not found.");
@@ -241,8 +238,10 @@ async function dashboard(root) {
         "Credit sales",
         money(d.credit_sales),
         "◫",
-        "Invoices with credit payment",
+        `${money(d.outstanding_credit)} currently outstanding`,
       ],
+      ["Paid invoices", d.paid_invoices, "✓", `${d.due_invoices} partially paid / due`],
+      ["Pending credit customers", d.pending_credit_customers, "↗", "Customers with an outstanding balance"],
     ]
       .map(
         ([l, v, i, f]) =>
@@ -269,7 +268,7 @@ async function invoices(root) {
         ? '<a href="#create" class="button">＋ Create invoice</a>'
         : "",
     ) +
-    `<section class="card"><div class="card-body">${dateFilters(field("Search invoice, customer, mobile or GSTIN", "search") + select("Payment", "payment_method", ["", "Cash", "UPI", "Card", "Bank Transfer", "Credit"]) + select("Status", "status", ["", "Active", "Cancelled"]))}</div><div id="invoice-list"></div></section>`;
+    `<section class="card"><div class="card-body">${dateFilters(field("Search invoice, customer, mobile or GSTIN", "search") + select("Payment status", "payment_status", ["", "Paid", "Partially Paid", "Due", "Credit Cleared", "Cancelled"]) + select("Invoice status", "status", ["", "Active", "Cancelled"]))}</div><div id="invoice-list"></div></section>`;
   let q = {},
     page = 1;
   async function load() {
@@ -306,9 +305,9 @@ async function invoiceView(root, id) {
     heading(
       i.invoice_number,
       (i.customer_name || "Walk-in customer") + " · " + i.invoice_date,
-      `<a class="button secondary" href="print.php?id=${i.id}" target="_blank" rel="noopener">Print / preview</a><a class="button" href="api.php?action=pdf&id=${i.id}">Download PDF</a>`,
+      can("print_invoice") ? `<a class="button secondary" href="print.php?id=${i.id}" target="_blank" rel="noopener">Print / preview</a><a class="button" href="api.php?action=pdf&id=${i.id}">Download PDF</a>` : "",
     ) +
-    `<div class="actions card-body"><span class="badge ${i.status === "Cancelled" ? "cancelled" : ""}">${esc(i.status)}</span><span class="version-tag">Version ${i.version}</span>${can("edit_invoice") && i.status === "Active" ? `<a class="button secondary" href="#edit/${i.id}">Edit invoice</a>` : ""}${can("duplicate_invoice") ? '<button id="duplicate" class="secondary">Duplicate</button>' : ""}${can("cancel_invoice") && i.status === "Active" ? '<button id="cancel" class="secondary">Cancel invoice</button>' : ""}<button id="share" class="secondary">Share</button>${can("export_invoice") ? '<button id="email" class="secondary">Email invoice</button>' : ""}<button id="history" class="secondary">Activity & changes</button></div>${i.cancellation_reason ? `<div class="notice">Cancellation reason: ${esc(i.cancellation_reason)}</div>` : ""}<section class="card"><div class="card-head"><h2>${esc(i.business.name)}</h2><b>${money(i.grand_total)}</b></div><div class="card-body form-grid"><div><h3>Bill to</h3><p>${esc(i.customer_name || "Walk-in customer")}<br>${esc(i.customer_mobile)}<br>${esc(i.customer_gstin)}<br>${esc(i.billing_address)}</p></div><div><h3>Invoice details</h3><p>Place of supply: ${esc(states[i.place_of_supply])}<br>Payment: ${esc(i.payment_method)}<br>Reference: ${esc(i.payment_reference || "—")}<br>Shipping: ${esc(i.shipping_address || "—")}</p></div></div>${table(
+    `<div class="actions card-body"><span class="badge ${i.status === "Cancelled" ? "cancelled" : ""}">${esc(i.status)}</span><span class="badge">${esc(i.payment_status)}</span><span class="version-tag">Version ${i.version}</span>${can("edit_invoice") && i.status === "Active" ? `<a class="button secondary" href="#edit/${i.id}">Edit invoice</a>` : ""}${can("duplicate_invoice") ? '<button id="duplicate" class="secondary">Duplicate</button>' : ""}${can("cancel_invoice") && i.status === "Active" ? '<button id="cancel" class="secondary">Cancel invoice</button>' : ""}<button id="share" class="secondary">Share</button>${can("export_invoice") ? '<button id="email" class="secondary">Email invoice</button>' : ""}<button id="history" class="secondary">Activity & changes</button></div>${i.cancellation_reason ? `<div class="notice">Cancellation reason: ${esc(i.cancellation_reason)}</div>` : ""}<section class="card"><div class="card-head"><h2>${esc(i.business.name)}</h2><b>${money(i.grand_total)}</b></div><div class="card-body form-grid"><div><h3>Bill to</h3><p>${esc(i.customer_name || "Walk-in customer")}<br>${esc(i.customer_mobile)}<br>${esc(i.customer_gstin)}<br>${esc(i.billing_address)}</p></div><div><h3>Invoice details</h3><p>Place of supply: ${esc(states[i.place_of_supply])}<br>Shipping charges: ${money(i.shipping_charges)}<br>Shipping GST (${esc(i.shipping_gst_rate)}%): ${money(i.shipping_gst)} (included in total GST)<br>Paid: ${money(i.amount_paid)}<br>Due: ${money(i.amount_due)}</p><h3>Payment allocations</h3>${i.payment_allocations.length ? i.payment_allocations.map((payment) => `<p>${esc(payment.method)} · ${money(payment.amount)} · ${esc(payment.reference || "No reference")}</p>`).join("") : "<p>Credit / unpaid</p>"}</div></div>${table(
       i.items,
       [
         ["product_name", "Item"],
@@ -328,10 +327,14 @@ async function invoiceView(root, id) {
     )}<div class="card-body"><div class="form-grid">${[
       ["Subtotal", i.subtotal],
       ["Discount", i.discount],
+      ["Shipping charges", i.shipping_charges],
+      ["Shipping GST (included in total GST)", i.shipping_gst],
       ["Taxable amount", i.taxable],
       ["Total GST", i.gst],
       ["Round-off", i.round_off],
       ["Grand total", i.grand_total],
+      ["Amount paid", i.amount_paid],
+      ["Amount due", i.amount_due],
     ]
       .map(
         ([l, v]) =>
@@ -496,7 +499,7 @@ function businessPage(root) {
       "Business profile",
       "The details your customers see on every invoice.",
     ) +
-    `<section class="card"><form id="business-form" class="card-body"><div class="form-grid">${field("Business name", "name", business.name, "text", 'required maxlength="160"')}${field("GSTIN · format only", "gstin", business.gstin, "text", 'maxlength="15"')}${select("State", "state", states, business.state)}${field("Bank name", "bank_name", business.bank_name)}${field("Account number", "account_number", business.account_number)}${field("IFSC code", "ifsc", business.ifsc, "text", 'maxlength="11"')}${field("Branch", "branch", business.branch)}${textarea("Business address", "address", business.address, 'maxlength="1500"')}</div><p class="hint">New invoices use these details. Saved invoices retain the original business profile for historical accuracy.</p><button>Save business profile</button></form></section><section class="card"><div class="card-head"><h2>Business logo</h2></div><form id="logo-form" class="card-body">${field("PNG or JPEG · maximum 2 MB, 3000 × 3000 px", "logo", "", "file", 'accept="image/png,image/jpeg" required')}<p></p><button>Upload logo</button></form></section>`;
+    `<section class="card"><form id="business-form" class="card-body"><div class="form-grid">${field("Business name", "name", business.name, "text", 'required maxlength="160"')}${field("GSTIN · format only", "gstin", business.gstin, "text", 'maxlength="15"')}${field("Business e-mail", "email", business.email, "email", 'maxlength="190"')}${select("State / state code", "state", states, business.state)}${field("A/c holder name", "account_holder", business.account_holder)}${field("Bank name", "bank_name", business.bank_name)}${field("A/c name", "account_name", business.account_name)}${field("Account number", "account_number", business.account_number)}${field("IFSC code", "ifsc", business.ifsc, "text", 'maxlength="11"')}${field("Branch", "branch", business.branch)}${field("Business financial year (documents use their own date)", "financial_year", business.financial_year, "text", 'placeholder="2026-27" pattern="[0-9]{4}-[0-9]{2}"')}${textarea("Business address", "address", business.address, 'maxlength="1500"')}${textarea("Invoice declaration", "declaration", business.declaration, 'maxlength="2000"')}</div><p class="hint">New invoices snapshot these details so historical documents remain stable.</p><button>Save business profile</button></form></section><div class="settings-grid"><section class="card"><div class="card-head"><h2>Business logo</h2></div><form id="logo-form" class="card-body">${business.logo ? '<img class="asset-preview" src="api.php?action=business_asset&type=logo" alt="Current business logo"><p class="asset-warning" hidden>Stored logo could not be loaded.</p>' : '<div class="notice">No business logo configured.</div>'}${field("PNG or JPEG · maximum 2 MB, 3000 × 3000 px", "logo", "", "file", 'accept="image/png,image/jpeg" required')}<p></p><div class="actions"><button>Upload logo</button>${business.logo ? '<button type="button" class="danger delete-asset" data-type="logo">Delete logo</button>' : ""}</div></form></section><section class="card"><div class="card-head"><h2>Stamp / authorised signature</h2></div><form id="signature-form" class="card-body">${business.signature ? '<img class="asset-preview" src="api.php?action=business_asset&type=signature" alt="Current authorised signature"><p class="asset-warning" hidden>Stored signature could not be loaded.</p>' : '<div class="notice">No signature or stamp configured.</div>'}${field("PNG or JPEG", "signature", "", "file", 'accept="image/png,image/jpeg" required')}<p></p><div class="actions"><button>Upload signature</button>${business.signature ? '<button type="button" class="danger delete-asset" data-type="signature">Delete stamp</button>' : ""}</div></form></section></div>`;
   root.querySelector("#business-form").onsubmit = async (e) => {
     e.preventDefault();
     await busy(e.target.querySelector("button"), async () => {
@@ -510,15 +513,36 @@ function businessPage(root) {
       await api("logo_upload", new FormData(e.target));
       business = await api("business");
       toast("Logo uploaded.");
+      businessPage(root);
     }).catch(() => {});
   };
+  root.querySelector("#signature-form").onsubmit = async (e) => {
+    e.preventDefault();
+    await busy(e.target.querySelector("button"), async () => {
+      await api("signature_upload", new FormData(e.target));
+      business = await api("business");
+      toast("Authorised signature uploaded.");
+      businessPage(root);
+    }).catch(() => {});
+  };
+  root.querySelectorAll(".asset-preview").forEach((image) => image.onerror = () => { image.hidden = true; image.nextElementSibling.hidden = false; });
+  root.querySelectorAll(".delete-asset").forEach((button) => button.onclick = async () => {
+    const label = button.dataset.type === "logo" ? "business logo" : "stamp / signature";
+    if (!(await confirmAction(`Delete ${label}?`, "It will be removed from the business profile and future invoices. Existing invoice snapshots remain unchanged."))) return;
+    await busy(button, async () => {
+      const result = await api("business_asset_delete", { type: button.dataset.type });
+      business = await api("business");
+      toast(result.message);
+      businessPage(root);
+    }).catch(() => {});
+  });
 }
 async function settingsPage(root) {
   const n = await api("numbering");
   settings = await api("settings");
   root.innerHTML =
     heading("Settings", "A billing workspace that fits your business.") +
-    `<div class="settings-grid"><section class="card"><div class="card-head"><h2>Tax & billing preferences</h2></div><form id="settings-form" class="card-body">${field("Standard GST rates (comma separated)", "gst_rates", settings.gst_rates.join(", "))}<p></p>${field("Maximum custom GST rate (%)", "gst_max", settings.gst_max, "number", 'min="0" max="100" step="0.01" required')}<p></p><label class="check"><input type="checkbox" name="round_to_rupee" ${settings.round_to_rupee ? "checked" : ""}>Round invoice total to nearest rupee</label><h3>Payment methods</h3><div class="checks">${["Cash", "UPI", "Card", "Bank Transfer", "Credit"].map((p) => `<label class="check"><input type="checkbox" name="payment" value="${p}" ${settings.payments.includes(p) ? "checked" : ""}>${p}</label>`).join("")}</div><p></p>${textarea("Default invoice terms", "terms", settings.terms, 'maxlength="2000"')}<p></p><button>Save preferences</button></form></section><section class="card"><div class="card-head"><h2>Invoice numbering</h2></div><form id="numbering-form" class="card-body">${field("Prefix", "prefix", n.prefix, "text", 'maxlength="20"')}<p></p>${field("Next invoice number", "next_number", n.next_number, "number", 'required min="1"')}<p></p>${field("Minimum number digits", "padding", n.padding, "number", 'required min="1" max="12"')}<p class="hint">The current series cannot move backwards. Numbers are assigned only when invoices are saved.</p><button>Save numbering</button></form></section></div>`;
+    `<div class="settings-grid"><section class="card"><div class="card-head"><h2>Tax & billing preferences</h2></div><form id="settings-form" class="card-body">${field("Standard GST rates (comma separated)", "gst_rates", settings.gst_rates.join(", "))}<p></p>${field("Maximum custom GST rate (%)", "gst_max", settings.gst_max, "number", 'min="0" max="100" step="0.01" required')}<p></p>${field("GST rate on shipping (%)", "shipping_gst_rate", settings.shipping_gst_rate || "0", "number", 'min="0" max="100" step="0.01" required')}<p class="hint">Shipping is shown separately and taxed using this explicit policy.</p><label class="check"><input type="checkbox" name="round_to_rupee" ${settings.round_to_rupee ? "checked" : ""}>Round invoice total to nearest rupee</label><h3>Payment methods</h3><div class="checks">${["Cash", "UPI", "Card", "Bank Transfer", "Credit", "Other"].map((p) => `<label class="check"><input type="checkbox" name="payment" value="${p}" ${settings.payments.includes(p) ? "checked" : ""}>${p}</label>`).join("")}</div><p></p>${textarea("Default invoice terms", "terms", settings.terms, 'maxlength="2000"')}<p></p><button>Save preferences</button></form></section><section class="card"><div class="card-head"><h2>Invoice numbering</h2></div><form id="numbering-form" class="card-body">${field("Prefix", "prefix", n.prefix, "text", 'maxlength="20"')}<p></p>${field("Next invoice number", "next_number", n.next_number, "number", 'required min="1"')}<p></p>${field("Minimum number digits", "padding", n.padding, "number", 'required min="1" max="12"')}<p class="hint">The current series cannot move backwards. Numbers are assigned only when invoices are saved.</p><button>Save numbering</button></form></section></div>`;
   root.querySelector("#settings-form").onsubmit = async (e) => {
     e.preventDefault();
     const f = e.target;
@@ -555,6 +579,7 @@ async function usersPage(root) {
     `<section class="card">${table(data.users, [
       ["name", "Name"],
       ["email", "Email"],
+      ["contact", "Contact"],
       ["role_id", "Role"],
       [
         "active",
@@ -565,8 +590,8 @@ async function usersPage(root) {
       [
         "id",
         "Actions",
-        (v) =>
-          `<button class="secondary edit-user" data-id="${v}">Edit permissions</button>`,
+        (v, row) =>
+          `<div class="actions"><button class="secondary edit-user" data-id="${v}">Edit</button>${row.role_id !== "ADMIN" && Number(row.linked) ? `<button class="secondary reset-user" data-id="${v}">Reset password</button>` : ""}${row.role_id !== "ADMIN" ? `<button class="danger delete-user" data-id="${v}">Delete permanently</button>` : ""}</div>`,
       ],
     ])}</section><div class="notice">Create the local account, then use “Activate invited account” on the sign-in page. With a Firebase service account configured, you can also provision a temporary password below.</div>`;
   function editor(target = { role_id: "STAFF", active: 1 }) {
@@ -576,7 +601,7 @@ async function usersPage(root) {
         .map((x) => [x.permission_id, Number(x.allowed) ? "allow" : "deny"]),
     );
     modal(
-      `<h2>${target.id ? "Edit team member" : "Add team member"}</h2><form id="user-form"><div class="form-grid">${field("Name", "name", target.name, "text", 'required maxlength="160"')}${field("Email", "email", target.email, "email", `required ${target.id ? "readonly" : ""}`)}${select("Role", "role_id", ["STAFF", "OWNER", "ADMIN"], target.role_id)}${select("Account status", "active", { 1: "Active", 0: "Disabled" }, String(target.active))}</div><h3>Permission overrides</h3><p class="hint">“Role default” inherits the assigned role. Administrative permissions cannot be granted to Owner or Staff.</p><div class="form-grid">${data.permissions.map((p) => select(p.id.replaceAll("_", " ") + (Number(p.admin_only) ? " (Admin only)" : ""), "perm_" + p.id, { default: "Role default", allow: "Allow", deny: "Deny" }, overrides[p.id] || "default")).join("")}</div><p></p><button>Save team member</button></form>${target.id ? '<p></p><button id="provision" class="secondary">Provision Firebase account</button>' : ""}`,
+      `<h2>${target.id ? "Edit team member" : "Add team member"}</h2><form id="user-form"><div class="form-grid">${field("Name", "name", target.name, "text", 'required maxlength="160"')}${field("Contact", "contact", target.contact, "tel", 'maxlength="30"')}${field("Email", "email", target.email, "email", `required ${target.id ? "readonly" : ""}`)}${select("Role", "role_id", ["STAFF", "OWNER", "ADMIN"], target.role_id)}${select("Account status", "active", { 1: "Active", 0: "Disabled" }, String(target.active))}</div><h3>Permission overrides</h3><p class="hint">“Role default” inherits the assigned role. Administrative permissions cannot be granted to Owner or Staff.</p><div class="form-grid">${data.permissions.map((p) => select(p.id.replaceAll("_", " ") + (Number(p.admin_only) ? " (Admin only)" : ""), "perm_" + p.id, { default: "Role default", allow: "Allow", deny: "Deny" }, overrides[p.id] || "default")).join("")}</div><p></p><button>Save team member</button></form>${target.id && !Number(target.linked) ? '<p></p><button id="provision" class="secondary">Provision Firebase account</button>' : ""}`,
     );
     document.querySelector("#user-form").onsubmit = async (e) => {
       e.preventDefault();
@@ -621,8 +646,49 @@ async function usersPage(root) {
         (b.onclick = () =>
           editor(data.users.find((u) => u.id == b.dataset.id))),
     );
+  root.querySelectorAll(".reset-user").forEach((button) => button.onclick = () => {
+    const target = data.users.find((row) => row.id == button.dataset.id);
+    modal(`<h2>Reset ${esc(target.name)}'s password</h2><p>A secure Firebase password-reset link will be emailed to <b>${esc(target.email)}</b>. Enter your current Admin password to authorize the request.</p><form id="reset-user-form">${field("Your Admin password", "admin_password", "", "password", 'required autocomplete="current-password"')}<p></p><button>Send reset email</button></form>`);
+    document.querySelector("#reset-user-form").onsubmit = async (event) => { event.preventDefault(); await busy(event.target.querySelector("button"), async () => { const token = await reauthenticate(user.email, event.target.admin_password.value); const result = await api("reset_user_password", { id: target.id, reauth_token: token }); closeModal(); toast(result.message); }).catch(() => {}); };
+  });
+  root.querySelectorAll(".delete-user").forEach((button) => button.onclick = () => {
+    const target = data.users.find((row) => row.id == button.dataset.id);
+    modal(`<h2>Permanently delete ${esc(target.name)}?</h2><div class="notice">This differs from disabling the account. The Firebase identity and local user record will be removed permanently; historical financial records remain assigned to the acting Admin.</div><form id="delete-user-form">${field("Your Admin password", "admin_password", "", "password", 'required autocomplete="current-password"')}<p></p><button class="danger">Delete user permanently</button></form>`);
+    document.querySelector("#delete-user-form").onsubmit = async (event) => { event.preventDefault(); await busy(event.target.querySelector("button"), async () => { const token = await reauthenticate(user.email, event.target.admin_password.value); const result = await api("delete_user", { id: target.id, confirmation: "DELETE USER", reauth_token: token }); closeModal(); toast(result.message); await usersPage(root); }).catch(() => {}); };
+  });
 }
-async function creditsPage(root) {
+async function creditInvoicesPage(root) {
+  root.innerHTML = heading("Credit invoices", "Customer balances, clearances and receipt history.", '<a class="button secondary" href="api.php?action=credit_history_all">Export all history ↓</a>') +
+    `<section class="card"><div class="card-body"><form id="credit-filters" class="filter-bar">${field("Search name, mobile or invoice", "search")}${select("Status", "status", ["All", "Pending", "Partially Cleared", "Cleared"])}<button class="secondary">Apply</button></form></div><div id="credit-list"></div></section><div id="credit-detail"></div>`;
+  async function load() {
+    const data = await api("credit_accounts", undefined, formData(root.querySelector("#credit-filters")));
+    root.querySelector("#credit-list").innerHTML = table(data.rows, [
+      ["customer_name", "Customer"], ["customer_mobile", "Mobile"], ["total_credit", "Credit created", money],
+      ["total_cleared", "Cleared", money], ["balance", "Outstanding", money], ["credit_status", "Status", (value) => `<span class="badge">${esc(value)}</span>`],
+      ["id", "Action", (value) => `<button class="secondary open-credit" data-id="${value}">Open ledger</button>`],
+    ]);
+    root.querySelectorAll(".open-credit").forEach((button) => (button.onclick = () => detail(button.dataset.id)));
+  }
+  async function detail(id) {
+    const account = await api("credit_account", undefined, { id });
+    const slot = root.querySelector("#credit-detail");
+    slot.innerHTML = `<section class="card"><div class="card-head"><div><h2>${esc(account.customer_name)}</h2><small>${esc(account.customer_mobile)} · ${esc(account.customer_address)}</small></div><div class="actions"><a class="button secondary" href="api.php?action=credit_history&id=${account.id}">Export history</a>${can("clear_credit") && Number(account.balance) > 0 ? '<button id="clear-credit">Clear credit</button>' : ""}</div></div><div class="card-body"><div class="stats"><div class="stat"><div class="stat-label">Current outstanding</div><div class="stat-value">${money(account.balance)}</div></div><div class="stat"><div class="stat-label">Total cleared</div><div class="stat-value">${money(account.total_cleared)}</div></div></div></div>${table(account.transactions, [
+      ["transaction_date", "Date"], ["kind", "Type"], ["invoice_number", "Invoice", (value) => esc(value || "—")], ["receipt_number", "Receipt", (value, row) => value ? `<a href="api.php?action=credit_receipt&id=${row.id}">${esc(value)}</a>` : "—"], ["amount", "Amount", money], ["balance_after", "Running balance", money], ["allocations", "Payment modes", (value) => value.length ? value.map((row) => `${esc(row.method)} ${money(row.amount)}`).join(" + ") : "—"],
+    ])}</section>`;
+    slot.querySelector("#clear-credit")?.addEventListener("click", () => clearance(account));
+  }
+  function clearance(account) {
+    modal(`<h2>Clear credit for ${esc(account.customer_name)}</h2><p>Outstanding: <b>${money(account.balance)}</b></p><form id="clearance-form">${field("Clearance date", "date", today(), "date", "required")}<div id="clearance-allocations"></div><button type="button" id="add-clearance" class="secondary">＋ Add payment method</button><p></p><button type="submit">Record clearance & create receipt</button></form>`);
+    const form = document.querySelector("#clearance-form"), allocations = document.querySelector("#clearance-allocations");
+    const add = () => { const row = document.createElement("div"); row.className = "item-card"; row.innerHTML = `<div class="item-grid">${select("Method", "method", settings.payments.filter((p) => p !== "Credit"))}${field("Amount", "amount", "", "number", `required min="0.01" max="${esc(account.balance)}" step="0.01"`)}${field("Reference", "reference", "", "text", 'maxlength="100"')}<button type="button" class="secondary remove">Remove</button></div>`; row.querySelector(".remove").onclick = () => row.remove(); allocations.append(row); };
+    add(); form.querySelector("#add-clearance").onclick = add;
+    form.onsubmit = async (event) => { event.preventDefault(); const payload = { credit_account_id: account.id, date: form.date.value, allocations: [...allocations.children].map((row) => Object.fromEntries([...row.querySelectorAll("input,select")].map((el) => [el.name, el.value]))) }; await busy(form.querySelector("[type=submit]"), async () => { const receipt = await api("clear_credit", payload); closeModal(); toast("Credit cleared. Receipt " + receipt.receipt_number + " is ready."); window.open(`api.php?action=credit_receipt&id=${receipt.id}`, "_blank", "noopener"); await load(); await detail(account.id); }).catch(() => {}); };
+  }
+  root.querySelector("#credit-filters").onsubmit = async (event) => { event.preventDefault(); await busy(event.target.querySelector("button"), load).catch(() => {}); };
+  await load();
+}
+
+async function creditNotesPage(root) {
   root.innerHTML =
     heading(
       "Credit notes & returns",
@@ -632,7 +698,7 @@ async function creditsPage(root) {
   async function list(q = {}) {
     const d = await api("reports", undefined, { type: "credit", ...q });
     root.querySelector("#credits-list").innerHTML = table(d.rows, [
-      ["id", "Credit note", (v) => "CN-" + esc(v)],
+      ["credit_note_number", "Credit note", (v, row) => `<a href="api.php?action=credit_note_pdf&id=${row.id}">CN-${esc(v)} · PDF</a>`],
       ["note_date", "Date"],
       ["invoice_number", "Invoice"],
       ["reason", "Reason"],
@@ -678,7 +744,7 @@ async function creditsPage(root) {
           return;
         await busy(f.querySelector("button"), async () => {
           const n = await api("create_credit", d);
-          toast("Credit note CN-" + n.id + " created.");
+          toast("Credit note " + n.number + " created.");
           slot.innerHTML = "";
           await list();
         }).catch(() => {});
@@ -739,6 +805,7 @@ function backupPage(root) {
       "Keep a recoverable copy of your business records.",
     ) +
     `<div class="settings-grid"><section class="card"><div class="card-head"><h2>Download encrypted backup</h2></div><div class="card-body"><p>Includes users, invoices, returns, settings, audit history and logos. Store the backup and your application key securely.</p><button id="download-backup">Create & download backup</button><p class="hint">Automatic and cloud backups are available through the documented Hostinger cron configuration.</p></div></section><section class="card"><div class="card-head"><h2>Restore your records</h2></div><form id="restore-form" class="card-body"><p>Restoring replaces the current database with the selected backup. A backup of the current state is saved first. Your active admin identity must exist in the backup.</p>${field("Encrypted backup", "backup", "", "file", 'accept=".gstbackup" required')}<p></p>${field("Type RESTORE ALL DATA to confirm", "confirmation", "", "text", "required")}<p></p><button class="danger">Restore backup</button></form></section></div>`;
+  if (can("delete_transaction_data")) root.insertAdjacentHTML("beforeend", `<section class="card danger-zone"><div class="card-head"><h2>Delete transaction data</h2></div><form id="delete-transactions-form" class="card-body"><div class="notice">Permanently removes invoices, invoice items, payments, credit accounts, clearances, credit notes and transactional audit history. Invoice, credit-note and receipt numbering restarts from 1. Business name, GSTIN, bank details, logo, declaration, signature, users and billing preferences are preserved. An encrypted backup is created first.</div>${field("Type DELETE ALL TRANSACTION DATA", "confirmation", "", "text", "required")}${field("Your Admin password", "admin_password", "", "password", 'required autocomplete="current-password"')}<p></p><button class="danger">Delete transaction data permanently</button></form></section>`);
   root.querySelector("#download-backup").onclick = async (e) => {
     await busy(e.target, () => downloadPost("backup")).catch(() => {});
   };
@@ -759,49 +826,16 @@ function backupPage(root) {
       await startWorkspace();
     }).catch(() => {});
   };
-}
-async function integrationsPage(root) {
-  const d = await api("integrations");
-  root.innerHTML =
-    heading(
-      "GST integrations",
-      "Connect your authorized provider for e-invoice and e-way bill requests.",
-    ) +
-    `<div class="notice">${d.configured ? "Provider endpoint configured. Ensure your provider implements the documented adapter contract before submission." : "Requires external API access: configure your authorized GST provider adapter and credentials. No government submission is simulated."}</div><section class="card"><form id="gst-form" class="card-body form-grid">${field("Invoice number", "invoice_number", "", "text", "required")}${select("Operation", "kind", { einvoice: "E-invoice / IRN / signed QR", ewaybill: "E-way bill" })}<button ${!d.configured ? "disabled" : ""}>Submit to provider</button></form></section><section class="card"><div class="card-head"><h2>Provider responses</h2></div>${table(
-      d.requests,
-      [
-        ["created_at", "Date"],
-        ["invoice_id", "Invoice ID"],
-        ["kind", "Operation"],
-        ["status", "Status"],
-        [
-          "response",
-          "Response",
-          (v) =>
-            `<details><summary>IRN / QR / reference details</summary><pre>${esc(JSON.stringify(JSON.parse(v), null, 2))}</pre></details>`,
-        ],
-      ],
-    )}</section>`;
-  root.querySelector("#gst-form").onsubmit = async (e) => {
-    e.preventDefault();
-    const f = e.target;
-    if (
-      !(await confirmAction(
-        "Submit invoice to GST provider?",
-        "The full invoice and customer details will be transmitted to your configured provider.",
-      ))
-    )
-      return;
-    await busy(f.querySelector("button"), async () => {
-      const r = await api("invoices", undefined, {
-        invoice_number: f.invoice_number.value,
-      });
-      if (!r.rows.length) throw new Error("Invoice not found.");
-      await api("gst_submit", { kind: f.kind.value }, { id: r.rows[0].id });
-      toast("Provider accepted the request.");
-      await integrationsPage(root);
+  root.querySelector("#delete-transactions-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!(await confirmAction("Permanently delete all transaction data?", "The listed billing and credit records will be deleted after an automatic encrypted backup. Business master details will remain."))) return;
+    await busy(event.target.querySelector("button"), async () => {
+      const token = await reauthenticate(user.email, event.target.admin_password.value);
+      const result = await api("delete_transactions", { confirmation: event.target.confirmation.value, reauth_token: token });
+      toast(result.message + " Backup: " + result.backup);
+      event.target.reset();
     }).catch(() => {});
-  };
+  });
 }
 window.addEventListener("hashchange", route);
 try {

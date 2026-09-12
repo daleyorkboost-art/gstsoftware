@@ -3,6 +3,18 @@ declare(strict_types=1);
 namespace App;
 final class CreditNoteService
 {
+    public function get(int $id): array
+    {
+        $credit = DB::one("SELECT c.*,i.invoice_number,i.invoice_date,i.customer_name,i.customer_mobile,i.customer_email,i.customer_gstin,i.billing_address,i.customer_state,i.business_snapshot FROM credit_notes c JOIN invoices i ON i.id=c.invoice_id WHERE c.id=?", [$id]);
+        if (!$credit) throw new HttpError(404, "Credit note not found.");
+        $credit["credit_note_number"] = (int) DB::one(
+            "SELECT COUNT(*) number FROM credit_notes WHERE id<=?",
+            [$id],
+        )["number"];
+        $credit["business"] = json_decode($credit["business_snapshot"], true, 512, JSON_THROW_ON_ERROR);
+        $credit["items"] = DB::all("SELECT r.*,it.product_name,it.hsn_sac,it.description,it.unit,it.rate,it.gst_rate FROM sales_returns r JOIN invoice_items it ON it.id=r.invoice_item_id WHERE r.credit_note_id=? ORDER BY it.position", [$id]);
+        return $credit;
+    }
     public function create(array $d, array $u): array
     {
         return DB::transaction(function () use ($d, $u) {
@@ -108,7 +120,9 @@ final class CreditNoteService
                 }
                 $returns[] = $r;
             }
-            $original = bcadd($invoice["taxable"], $invoice["gst"], 2);
+            $shippingTotal = bcadd($invoice["shipping_charges"], $invoice["shipping_gst"], 2);
+            $original = bcsub(bcadd($invoice["taxable"], $invoice["gst"], 2), $shippingTotal, 2);
+            $goodsGrand = bccomp($shippingTotal, "0", 2) > 0 ? $original : $invoice["grand_total"];
             $prior = DB::one(
                 "SELECT COALESCE(SUM(total),0) total,COALESCE(SUM(taxable+gst),0) base FROM credit_notes WHERE invoice_id=?",
                 [$invoice["id"]],
@@ -119,7 +133,7 @@ final class CreditNoteService
                     ? "0.00"
                     : Money::round(
                         bcdiv(
-                            bcmul($invoice["grand_total"], $cumulative, 8),
+                            bcmul($goodsGrand, $cumulative, 8),
                             $original,
                             8,
                         ),
@@ -141,6 +155,10 @@ final class CreditNoteService
                 ],
             );
             $id = (int) DB::connection()->lastInsertId();
+            $number = (int) DB::one(
+                "SELECT COUNT(*) number FROM credit_notes WHERE id<=?",
+                [$id],
+            )["number"];
             foreach ($returns as $r) {
                 DB::run(
                     "INSERT INTO sales_returns(credit_note_id,invoice_item_id,quantity,taxable,cgst,sgst,igst,gst,total) VALUES(?,?,?,?,?,?,?,?,?)",
@@ -157,7 +175,7 @@ final class CreditNoteService
                     "reason" => $reason,
                 ],
             );
-            return ["id" => $id, "number" => "CN-" . $id, "totals" => $totals];
+            return ["id" => $id, "number" => "CN-" . $number, "totals" => $totals];
         });
     }
 }

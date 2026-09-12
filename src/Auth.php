@@ -141,6 +141,18 @@ final class Auth
         AuditLogService::record($u, "Login");
         return self::user();
     }
+    public static function reauthenticate(array $user, string $token): void
+    {
+        $identity = (new FirebaseService())->verify(
+            Validation::text($token, "re-authentication token", 10000, true),
+        );
+        if (
+            !hash_equals((string) $user["firebase_uid"], (string) $identity["uid"]) ||
+            (int) ($identity["auth_time"] ?? 0) < time() - 300
+        ) {
+            throw new HttpError(403, "Sign in again with the current Admin password.");
+        }
+    }
     public static function limit(string $action, int $max): void
     {
         $bucket = hash(
