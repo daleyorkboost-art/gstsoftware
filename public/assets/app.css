@@ -725,6 +725,21 @@ dialog::backdrop {
   gap: 15px;
   flex-wrap: wrap;
 }
+.gst-mode-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.gst-mode-options .check {
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.gst-mode-options .check:has(input:checked) {
+  border-color: var(--green);
+  background: #eaf7f1;
+}
 .check {
   flex-direction: row;
   align-items: center;

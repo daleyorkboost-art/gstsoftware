@@ -106,6 +106,11 @@ final class InvoiceService
             ["Registered", "Unregistered"],
             "customer type",
         );
+        $fields["gst_mode"] = Validation::choice(
+            $d["gst_mode"] ?? "Exclude",
+            ["Include", "Exclude"],
+            "GST price mode",
+        );
         $fields["place_of_supply"] = Validation::state(
             $d["place_of_supply"] ?? $business["state"],
         );
@@ -126,6 +131,7 @@ final class InvoiceService
             $fields["place_of_supply"],
             $settings,
             (string) ($d["shipping_charges"] ?? "0"),
+            $fields["gst_mode"],
         );
         $allocations = $this->allocations(
             $d,
@@ -443,6 +449,10 @@ final class InvoiceService
     public function duplicate(int $id, array $user): array
     {
         $data = $this->get($id);
+        foreach ($data["items"] as &$item) {
+            $item["rate"] = $item["entered_rate"];
+        }
+        unset($item);
         $data["invoice_date"] = date("Y-m-d");
         $data["credit_bill"] = (bool) $data["credit_bill"];
         unset($data["shipping_gst_rate"]);

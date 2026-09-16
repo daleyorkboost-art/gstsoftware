@@ -54,6 +54,15 @@ check(
         $twoInterstate["totals"]["sgst"] === "0.00",
     "multiple inter-state items use IGST only",
 );
+foreach (["5" => "4.76", "12" => "10.71", "18" => "15.25", "28" => "21.88", "40" => "28.57", "7.5" => "6.98"] as $rate => $tax) {
+    $inclusive = $engine->calculate([[...$item, "quantity" => "1", "discount" => "0", "gst_rate" => $rate]], "29", "27", [...$settings, "round_to_rupee" => false], "0", "Include");
+    check($inclusive["items"][0]["rate"] === Money::round(bcdiv("100", bcadd("1", bcdiv($rate, "100", 8), 8), 8)) && $inclusive["items"][0]["gst"] === $tax && $inclusive["totals"]["grand_total"] === "100.00", "inclusive GST extracts $rate% without increasing final price");
+}
+$inclusive = $engine->calculate([[...$item, "quantity" => "2", "discount_mode" => "Percent", "discount_value" => "10"]], "29", "29", [...$settings, "round_to_rupee" => false], "0", "Include");
+check($inclusive["items"][0]["total"] === "180.00" && $inclusive["items"][0]["gst"] === "27.46" && $inclusive["items"][0]["cgst"] === "13.73", "inclusive discount and intra-state tax reconcile");
+$inclusive = $engine->calculate([[...$item, "quantity" => "1", "rate" => "99.50", "discount" => "0"]], "29", "29", $settings, "0", "Include");
+check($inclusive["totals"]["grand_total"] === "99.50" && $inclusive["totals"]["round_off"] === "0.00", "inclusive payable amount is not changed by whole-rupee rounding preference");
+rejects(fn() => $engine->calculate([$item], "29", "29", $settings, "0", "Invalid"), "reject invalid GST mode");
 foreach (
     [
         "0" => "0.00",

@@ -9,7 +9,9 @@ final class GSTCalculationService
         string $placeOfSupply,
         array $settings,
         string $shippingCharges = "0",
+        string $gstMode = "Exclude",
     ): array {
+        $gstMode = Validation::choice($gstMode, ["Include", "Exclude"], "GST price mode");
         if (!$items || count($items) > 200) {
             throw new HttpError(
                 422,
@@ -65,7 +67,7 @@ final class GSTCalculationService
             if (bccomp($row["quantity"], "0", 3) <= 0) {
                 throw new HttpError(422, "Quantity must be greater than zero.");
             }
-            $row["rate"] = Money::number($item["rate"] ?? "0", "rate");
+            $row["entered_rate"] = Money::number($item["rate"] ?? "0", "rate");
             $row["discount_mode"] = Validation::choice(
                 $item["discount_mode"] ?? "Flat",
                 ["Flat", "Percent"],
@@ -83,29 +85,41 @@ final class GSTCalculationService
                 2,
                 (string) $settings["gst_max"],
             );
-            $row["gross"] = Money::round(
-                bcmul($row["quantity"], $row["rate"], 8),
-            );
-            $row["discount"] =
+            $enteredGross = Money::round(bcmul($row["quantity"], $row["entered_rate"], 8));
+            $enteredDiscount =
                 $row["discount_mode"] === "Percent"
                     ? Money::round(
                         bcdiv(
-                            bcmul($row["gross"], $row["discount_value"], 8),
+                            bcmul($enteredGross, $row["discount_value"], 8),
                             "100",
                             8,
                         ),
                     )
                     : $row["discount_value"];
-            if (bccomp($row["discount"], $row["gross"], 2) > 0) {
+            if (bccomp($enteredDiscount, $enteredGross, 2) > 0) {
                 throw new HttpError(
                     422,
                     "Discount cannot exceed the item gross amount.",
                 );
             }
-            $row["taxable"] = bcsub($row["gross"], $row["discount"], 2);
-            $row["gst"] = Money::round(
-                bcdiv(bcmul($row["taxable"], $row["gst_rate"], 8), "100", 8),
-            );
+            if ($gstMode === "Include") {
+                $factor = bcadd("1", bcdiv($row["gst_rate"], "100", 8), 8);
+                $row["rate"] = Money::round(bcdiv($row["entered_rate"], $factor, 8));
+                $row["gross"] = Money::round(bcdiv($enteredGross, $factor, 8));
+                $row["total"] = bcsub($enteredGross, $enteredDiscount, 2);
+                $row["taxable"] = Money::round(bcdiv($row["total"], $factor, 8));
+                $row["discount"] = bcsub($row["gross"], $row["taxable"], 2);
+                $row["gst"] = bcsub($row["total"], $row["taxable"], 2);
+            } else {
+                $row["rate"] = $row["entered_rate"];
+                $row["gross"] = $enteredGross;
+                $row["discount"] = $enteredDiscount;
+                $row["taxable"] = bcsub($row["gross"], $row["discount"], 2);
+                $row["gst"] = Money::round(
+                    bcdiv(bcmul($row["taxable"], $row["gst_rate"], 8), "100", 8),
+                );
+                $row["total"] = bcadd($row["taxable"], $row["gst"], 2);
+            }
             $row["cgst"] = $row["sgst"] = $row["igst"] = "0.00";
             if (!$isInterState) {
                 $row["cgst"] = Money::round(bcdiv($row["gst"], "2", 8));
@@ -113,7 +127,6 @@ final class GSTCalculationService
             } else {
                 $row["igst"] = $row["gst"];
             }
-            $row["total"] = bcadd($row["taxable"], $row["gst"], 2);
             foreach ($totals as $key => $v) {
                 $totals[$key] = bcadd(
                     $v,
@@ -161,7 +174,7 @@ final class GSTCalculationService
             );
         }
         $grand =
-            $settings["round_to_rupee"] ?? true
+            ($gstMode === "Exclude" && ($settings["round_to_rupee"] ?? true))
                 ? Money::round($totals["total"], 0) . ".00"
                 : $totals["total"];
         $totals["round_off"] = bcsub($grand, $totals["total"], 2);
